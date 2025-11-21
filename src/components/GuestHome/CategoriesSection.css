@@ -1,0 +1,18 @@
+@import url('../../styles/tokens.css');
+
+.categories-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.categories-section__heading {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: var(--spacing-lg);
+  color: var(--color-text);
+}
+
+.categories-section .row {
+  align-items: stretch;
+  row-gap: var(--spacing-md);
+}
+

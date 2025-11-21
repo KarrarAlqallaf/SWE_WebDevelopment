@@ -1,5 +1,5 @@
 import React from 'react';
-import './GuestHome.css';
+import './CategoryTile.css';
 
 const CategoryTile = ({ category, onClick }) => {
   const handleClick = () => {

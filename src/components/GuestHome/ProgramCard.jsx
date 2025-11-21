@@ -1,5 +1,5 @@
 import React from 'react';
-import './GuestHome.css';
+import './ProgramCard.css';
 
 const ProgramCard = ({ program, onClick }) => {
   const handleClick = () => {

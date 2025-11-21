@@ -1,0 +1,17 @@
+@import url('../../styles/tokens.css');
+
+.popular-programs-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.popular-programs-section__heading {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: var(--spacing-lg);
+  color: var(--color-text);
+}
+
+.popular-programs-section .row {
+  align-items: stretch;
+}
+
