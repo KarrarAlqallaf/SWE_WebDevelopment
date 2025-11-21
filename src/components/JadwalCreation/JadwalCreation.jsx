@@ -66,7 +66,7 @@ const JadwalCreationPage = ({
               <p className="jadwal-creation__eyebrow">Popular blueprints</p>
               <h2 id="built-in-heading">Built-in programs</h2>
             </div>
-            <p className="text-muted mb-0">
+            <p>
               Selecting a program will take you to the builder with its structure pre-loaded.
             </p>
           </div>
@@ -104,7 +104,7 @@ const JadwalCreationPage = ({
               <p className="jadwal-creation__eyebrow">Dial in the vibe</p>
               <h2 id="category-heading">Categories</h2>
             </div>
-            <p className="text-muted mb-0">
+            <p>
               Tag your custom Jadwal with as many categories as you like—these will surface it in discovery later.
             </p>
           </div>
@@ -145,8 +145,8 @@ const JadwalCreationPage = ({
 
           <div className="jadwal-creation__actions">
             <div className="jadwal-creation__selection-summary">
-              <p className="mb-1 text-muted">Selected categories</p>
-              <p className="mb-0">{selectedLabels}</p>
+              <p>Selected categories</p>
+              <p>{selectedLabels}</p>
             </div>
             <button
               type="button"

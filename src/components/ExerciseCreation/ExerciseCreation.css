@@ -203,6 +203,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 0.5rem;
+
 }
 
 .exercise-creation__set-menu-btn:hover {
@@ -218,6 +220,8 @@
   font-weight: 600;
   cursor: pointer;
   padding: 0.5rem 0;
+  border-radius: 0.5rem;
+
 }
 
 .exercise-creation__add-set-btn:hover {

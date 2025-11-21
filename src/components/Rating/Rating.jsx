@@ -137,10 +137,10 @@ const Rating = ({
           );
         })}
       </div>
-      <div className="rating__submit-wrapper">
+      <div>
         <button
           type="button"
-          className="rating__submit"
+          className="primary-btn"
           onClick={handleSubmit}
           disabled={currentValue === 0}
           aria-disabled={currentValue === 0}
