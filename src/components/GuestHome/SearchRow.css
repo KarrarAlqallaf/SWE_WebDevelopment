@@ -33,7 +33,6 @@
 
 .guest-home__search-input {
   border: none;
-  padding: var(--spacing-md) var(--spacing-lg);
   font-size: 1rem;
 }
 

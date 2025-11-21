@@ -19,7 +19,7 @@ const PopularProgramsSection = ({ programs = [], onOpenProgram }) => (
         ))
       ) : (
         <div className="col-12">
-          <p className="text-center text-muted">No programs found matching your search.</p>
+          <p>No programs found matching your search.</p>
         </div>
       )}
     </div>
