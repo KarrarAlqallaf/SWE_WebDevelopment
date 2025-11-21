@@ -523,3 +523,17 @@ hr {
 .guest-home__search-icon svg {
   stroke: currentColor;
 }
+.program-detail-modal__backdrop{
+  /* 1. Set a semi-transparent background color. This is CRUCIAL. */
+  background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent white (50% opacity) */
+
+  /* 2. Apply the blur filter to the backdrop */
+  backdrop-filter: blur(10px);
+
+  /* (Optional) For better compatibility with older browsers, 
+     though `backdrop-filter` support is excellent now */
+  -webkit-backdrop-filter: blur(10px); 
+  
+  /* Add padding/size so the element is visible */
+  padding: 20px;
+}
