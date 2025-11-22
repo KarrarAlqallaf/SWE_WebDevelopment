@@ -67,6 +67,41 @@
   --color-button-hover-text: #ffffff;
 }
 
+[data-theme='monokai'] {
+  --color-bg: #272822;
+  --color-bg-gradient: radial-gradient(
+    circle at 50% 0%,
+    #3E3D32 0%,
+    #272822 55%,
+    #272822 100%
+  );
+  --color-surface: #3E3D32;
+  --color-surface-alt: #49483E;
+  --color-elevated: rgba(62, 61, 50, 0.6);
+  --color-elevated2: rgba(62, 61, 50, 0.9);
+  --color-card-border: rgba(174, 129, 255, 0.3);
+  --color-divider: rgba(230, 219, 116, 0.3);
+  --color-text: #F8F8F2;
+  --color-text-muted: #66D9EF;
+  --color-heading: #F92672;
+  --color-primary: #A6E22E;
+  --color-primary-hover: #B8F03E;
+  --color-secondary: #AE81FF;
+  --color-success: #A6E22E;
+  --color-warning: #FD971F;
+  --color-danger: #F92672;
+  --color-focus-ring: rgba(174, 129, 255, 0.6);
+  --color-button-border: rgba(174, 129, 255, 0.4);
+  --color-button-bg: rgba(102, 217, 239, 0.15);
+  --color-button-text: #F8F8F2;
+  --color-button-outline-bg: rgba(174, 129, 255, 0.1);
+  --color-button-outline-text: #AE81FF;
+  --color-button-solid-bg: #A6E22E;
+  --color-button-solid-text: #272822;
+  --color-button-hover-bg: #B8F03E;
+  --color-button-hover-text: #272822;
+}
+
 html,
 body,
 #root {
@@ -301,6 +336,50 @@ textarea::placeholder {
 .guest-home__auth-btn,
 .guest-home__theme-toggle {
   color: var(--color-secondary);
+}
+
+/* Monokai theme specific colorful accents */
+[data-theme='monokai'] .rating-stars {
+  color: #E6DB74;
+}
+
+[data-theme='monokai'] .guest-home__auth-btn {
+  color: #66D9EF;
+}
+
+[data-theme='monokai'] .guest-home__theme-toggle {
+  color: #AE81FF;
+}
+
+[data-theme='monokai'] a:hover,
+[data-theme='monokai'] .link-btn:hover {
+  color: #E6DB74;
+}
+
+[data-theme='monokai'] .category-tile__icon {
+  color: #FD971F;
+}
+
+[data-theme='monokai'] .sidebar__item:hover,
+[data-theme='monokai'] .sidebar__quicklink:hover {
+  background-color: rgba(174, 129, 255, 0.2);
+  color: #AE81FF;
+}
+
+[data-theme='monokai'] .sidebar__chevron-btn:hover {
+  border-color: #66D9EF;
+  color: #66D9EF;
+}
+
+[data-theme='monokai'] .jadwal-builder__day-btn:hover,
+[data-theme='monokai'] .program-detail__day-btn:hover {
+  border-color: #E6DB74;
+  background-color: rgba(230, 219, 116, 0.15);
+}
+
+[data-theme='monokai'] .search-form:focus-within {
+  border-color: #AE81FF;
+  box-shadow: 0 0 0 2px rgba(174, 129, 255, 0.3);
 }
 
 .bordered,

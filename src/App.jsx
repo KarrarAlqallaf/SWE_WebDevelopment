@@ -347,7 +347,9 @@ function App() {
 
   
   const handleThemeToggle = () => {
-    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    const themes = ['dark', 'light', 'monokai'];
+    const currentIndex = themes.indexOf(theme);
+    const newTheme = themes[(currentIndex + 1) % themes.length];
     setTheme(newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
