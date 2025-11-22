@@ -2,6 +2,8 @@
 
 A fully interactive React-based front-end prototype for a comprehensive workout program management platform. JadwalGYM allows users to browse, create, customize, and manage fitness schedules with an intuitive interface supporting both light and dark themes.
 
+The Figma design refrence: https://www.figma.com/design/kcLsyUcdHoMwOS8iJ0dojI/SWE-web-project?node-id=0-1&t=cJ6LcyIkq8STwc7w-1
+
 ## 📋 Table of Contents
 
 - [Project Overview](#project-overview)
