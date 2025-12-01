@@ -101,6 +101,7 @@ function App() {
   const [vaultItems, setVaultItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [programInfos, setProgramInfos] = useState([]);
 
   // Initialize theme from HTML or localStorage
   useEffect(() => {
@@ -114,20 +115,22 @@ function App() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [programRes, categoryRes, userRes] = await Promise.all([
+        const [programRes, categoryRes, userRes, programInfoRes] = await Promise.all([
           fetch(`${API_BASE_URL}/getPrograms`),
           fetch(`${API_BASE_URL}/getCategories`),
           fetch(`${API_BASE_URL}/getUsers`),
+          fetch(`${API_BASE_URL}/programsinfos`),
         ]);
 
-        if (!programRes.ok || !categoryRes.ok || !userRes.ok) {
+        if (!programRes.ok || !categoryRes.ok || !userRes.ok || !programInfoRes.ok) {
           throw new Error('Failed to load data from server');
         }
 
-        const [programData, categoryData, userData] = await Promise.all([
+        const [programData, categoryData, userData, programInfoData] = await Promise.all([
           programRes.json(),
           categoryRes.json(),
           userRes.json(),
+          programInfoRes.json(),
         ]);
 
         // Map programs to UI shape
@@ -155,6 +158,9 @@ function App() {
             type: c.type,
           }))
         );
+
+        // Store detailed programInfo docs
+        setProgramInfos(programInfoData || []);
 
         // Build vault items from first user’s saved programs
         const firstUser = (userData || [])[0];
@@ -272,195 +278,14 @@ function App() {
   }));
 
   const getBuiltInProgramTemplate = (programKey) => {
-    const templates = {
-      'Push-Pull-Legs (PPL)': {
-        days: [
-          {
-            id: 1,
-            exercises: [
-              {
-                id: 1,
-                name: 'Bench Press',
-                muscle: 'Chest',
-                unit: 'KG',
-                sets: [{ id: 1, weight: '', reps: '' }, { id: 2, weight: '', reps: '' }, { id: 3, weight: '', reps: '' }],
-                notes: ''
-              },
-              {
-                id: 2,
-                name: 'Overhead Press',
-                muscle: 'Shoulders',
-                unit: 'KG',
-                sets: [{ id: 1, weight: '', reps: '' }, { id: 2, weight: '', reps: '' }, { id: 3, weight: '', reps: '' }],
-                notes: ''
-              },
-              {
-                id: 3,
-                name: 'Tricep Dips',
-                muscle: 'Triceps',
-                unit: 'KG',
-                sets: [{ id: 1, weight: '', reps: '' }, { id: 2, weight: '', reps: '' }, { id: 3, weight: '', reps: '' }],
-                notes: ''
-              }
-            ]
-          },
-          {
-            id: 2,
-            exercises: [
-              {
-                id: 4,
-                name: 'Deadlift',
-                muscle: 'Back',
-                unit: 'KG',
-                sets: [{ id: 1, weight: '', reps: '' }, { id: 2, weight: '', reps: '' }, { id: 3, weight: '', reps: '' }],
-                notes: ''
-              },
-              {
-                id: 5,
-                name: 'Barbell Row',
-                muscle: 'Back',
-                unit: 'KG',
-                sets: [{ id: 1, weight: '', reps: '' }, { id: 2, weight: '', reps: '' }, { id: 3, weight: '', reps: '' }],
-                notes: ''
-              },
-              {
-                id: 6,
-                name: 'Barbell Curl',
-                muscle: 'Biceps',
-                unit: 'KG',
-                sets: [{ id: 1, weight: '', reps: '' }, { id: 2, weight: '', reps: '' }, { id: 3, weight: '', reps: '' }],
-                notes: ''
-              }
-            ]
-          },
-          {
-            id: 3,
-            exercises: [
-              {
-                id: 7,
-                name: 'Squat',
-                muscle: 'Legs',
-                unit: 'KG',
-                sets: [{ id: 1, weight: '', reps: '' }, { id: 2, weight: '', reps: '' }, { id: 3, weight: '', reps: '' }],
-                notes: ''
-              },
-              {
-                id: 8,
-                name: 'Leg Press',
-                muscle: 'Legs',
-                unit: 'KG',
-                sets: [{ id: 1, weight: '', reps: '' }, { id: 2, weight: '', reps: '' }, { id: 3, weight: '', reps: '' }],
-                notes: ''
-              },
-              {
-                id: 9,
-                name: 'Calf Raise',
-                muscle: 'Legs',
-                unit: 'KG',
-                sets: [{ id: 1, weight: '', reps: '' }, { id: 2, weight: '', reps: '' }, { id: 3, weight: '', reps: '' }],
-                notes: ''
-              }
-            ]
-          }
-        ]
-      },
-      'Upper-Lower Split': {
-        days: [
-          {
-            id: 1,
-            exercises: [
-              {
-                id: 1,
-                name: 'Bench Press',
-                muscle: 'Chest',
-                unit: 'KG',
-                sets: [{ id: 1, weight: '', reps: '' }, { id: 2, weight: '', reps: '' }, { id: 3, weight: '', reps: '' }],
-                notes: ''
-              },
-              {
-                id: 2,
-                name: 'Barbell Row',
-                muscle: 'Back',
-                unit: 'KG',
-                sets: [{ id: 1, weight: '', reps: '' }, { id: 2, weight: '', reps: '' }, { id: 3, weight: '', reps: '' }],
-                notes: ''
-              },
-              {
-                id: 3,
-                name: 'Overhead Press',
-                muscle: 'Shoulders',
-                unit: 'KG',
-                sets: [{ id: 1, weight: '', reps: '' }, { id: 2, weight: '', reps: '' }, { id: 3, weight: '', reps: '' }],
-                notes: ''
-              }
-            ]
-          },
-          {
-            id: 2,
-            exercises: [
-              {
-                id: 4,
-                name: 'Squat',
-                muscle: 'Legs',
-                unit: 'KG',
-                sets: [{ id: 1, weight: '', reps: '' }, { id: 2, weight: '', reps: '' }, { id: 3, weight: '', reps: '' }],
-                notes: ''
-              },
-              {
-                id: 5,
-                name: 'Romanian Deadlift',
-                muscle: 'Legs',
-                unit: 'KG',
-                sets: [{ id: 1, weight: '', reps: '' }, { id: 2, weight: '', reps: '' }, { id: 3, weight: '', reps: '' }],
-                notes: ''
-              },
-              {
-                id: 6,
-                name: 'Leg Curl',
-                muscle: 'Legs',
-                unit: 'KG',
-                sets: [{ id: 1, weight: '', reps: '' }, { id: 2, weight: '', reps: '' }, { id: 3, weight: '', reps: '' }],
-                notes: ''
-              }
-            ]
-          }
-        ]
-      },
-      'Full Body': {
-        days: [
-          {
-            id: 1,
-            exercises: [
-              {
-                id: 1,
-                name: 'Squat',
-                muscle: 'Legs',
-                unit: 'KG',
-                sets: [{ id: 1, weight: '', reps: '' }, { id: 2, weight: '', reps: '' }, { id: 3, weight: '', reps: '' }],
-                notes: ''
-              },
-              {
-                id: 2,
-                name: 'Bench Press',
-                muscle: 'Chest',
-                unit: 'KG',
-                sets: [{ id: 1, weight: '', reps: '' }, { id: 2, weight: '', reps: '' }, { id: 3, weight: '', reps: '' }],
-                notes: ''
-              },
-              {
-                id: 3,
-                name: 'Barbell Row',
-                muscle: 'Back',
-                unit: 'KG',
-                sets: [{ id: 1, weight: '', reps: '' }, { id: 2, weight: '', reps: '' }, { id: 3, weight: '', reps: '' }],
-                notes: ''
-              }
-            ]
-          }
-        ]
-      }
-    };
-    return templates[programKey] || null;
+    if (!programKey || !Array.isArray(programInfos)) return null;
+
+    const match = programInfos.find((p) => p.title === programKey || p.shortLabel === programKey);
+    if (match && match.programInfo && Array.isArray(match.programInfo.days)) {
+      return match.programInfo;
+    }
+
+    return null;
   };
 
   const handleSelectBuiltInProgram = (program) => {

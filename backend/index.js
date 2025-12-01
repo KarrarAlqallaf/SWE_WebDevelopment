@@ -207,6 +207,7 @@ const categorySchema = new mongoose.Schema({
 
 const UserModel = mongoose.model("users", userSchema);
 const ProgramModel = mongoose.model("programs", programSchema);
+const ProgramInfoModel = mongoose.model("programsInfo", programSchema);
 const CategoryModel = mongoose.model("categories", categorySchema);
 
 app.get("/", (req, res) => {
@@ -227,5 +228,11 @@ app.get("/getPrograms", async (req, res) => {
 app.get("/getCategories", async (req, res) => {
     const categoryData = await CategoryModel.find();
     res.json(categoryData);
+});
+
+// Return detailed programInfo documents (days / exercises / sets)
+app.get("/programsinfos", async (req, res) => {
+    const infoData = await ProgramInfoModel.find();
+    res.json(infoData);
 });
 
