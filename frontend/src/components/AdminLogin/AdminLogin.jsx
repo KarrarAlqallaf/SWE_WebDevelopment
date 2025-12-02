@@ -1,15 +1,45 @@
 import { useState } from "react";
 import "./AdminLogin.css";
 
+const API_BASE_URL = `http://localhost:8000`;
+
 export default function AdminLogin({ onBack, onLogin, onOpenUserLogin }) {
   const [admin, setAdmin] = useState({ username: "", password: "" });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  function handleSubmit(e) {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (onLogin) {
-      onLogin(admin);
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/admin/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(admin),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Store token
+        localStorage.setItem("token", data.data.token);
+        // Call parent callback with user data
+        if (onLogin) {
+          onLogin(data.data.user, data.data.token);
+        }
+      } else {
+        setError(data.message || "Admin login failed");
+      }
+    } catch (err) {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="auth-screen">
@@ -17,6 +47,8 @@ export default function AdminLogin({ onBack, onLogin, onOpenUserLogin }) {
         <button type="button" className="back-btn" onClick={onBack}>←</button>
 
         <h1 className="title">Admin Login</h1>
+
+        {error && <div className="error-message">{error}</div>}
 
         <form className="form" onSubmit={handleSubmit}>
           <div className="field">
@@ -26,6 +58,7 @@ export default function AdminLogin({ onBack, onLogin, onOpenUserLogin }) {
               value={admin.username}
               onChange={(e) => setAdmin({ ...admin, username: e.target.value })}
               required
+              disabled={loading}
             />
             <span className="icon">👤</span>
           </div>
@@ -37,12 +70,13 @@ export default function AdminLogin({ onBack, onLogin, onOpenUserLogin }) {
               value={admin.password}
               onChange={(e) => setAdmin({ ...admin, password: e.target.value })}
               required
+              disabled={loading}
             />
             <span className="icon">🔒</span>
           </div>
 
-          <button className="primary-btn" type="submit">
-            <span className="btn-text">Login</span>
+          <button className="primary-btn" type="submit" disabled={loading}>
+            <span className="btn-text">{loading ? "Logging in..." : "Login"}</span>
           </button>
         </form>
 
@@ -54,4 +88,3 @@ export default function AdminLogin({ onBack, onLogin, onOpenUserLogin }) {
     </div>
   );
 }
-

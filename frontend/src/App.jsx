@@ -112,6 +112,55 @@ function App() {
     document.documentElement.setAttribute('data-theme', savedTheme);
   }, []);
 
+  // Check authentication on mount
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      fetchCurrentUser(token);
+    }
+  }, []);
+
+  const fetchCurrentUser = async (token) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setCurrentUser(data.data.user);
+        setIsAuthenticated(true);
+        setIsAdmin(data.data.user.role === 'admin');
+      } else {
+        // Token invalid, clear it
+        localStorage.removeItem('token');
+        setIsAuthenticated(false);
+        setIsAdmin(false);
+        setCurrentUser(null);
+      }
+    } catch (error) {
+      console.error('Failed to fetch current user:', error);
+      localStorage.removeItem('token');
+      setIsAuthenticated(false);
+      setIsAdmin(false);
+      setCurrentUser(null);
+    }
+  };
+
+  const handleSignOut = () => {
+    localStorage.removeItem('token');
+    setIsAuthenticated(false);
+    setIsAdmin(false);
+    setCurrentUser(null);
+    setCurrentView(null);
+    setCurrentPage('home');
+  };
+
+  const handleUserUpdate = (updatedUser) => {
+    setCurrentUser(updatedUser);
+  };
+
   // Fetch data from backend APIs
   useEffect(() => {
     const fetchData = async () => {
@@ -352,8 +401,10 @@ function App() {
                   setCurrentView(null);
                   setCurrentPage('home');
                 }}
-                onLogin={(user) => {
+                onLogin={(user, token) => {
+                  setCurrentUser(user);
                   setIsAuthenticated(true);
+                  setIsAdmin(user.role === 'admin');
                   setCurrentView(null);
                   setCurrentPage('account');
                 }}
@@ -367,8 +418,10 @@ function App() {
                   setCurrentView(null);
                   setCurrentPage('home');
                 }}
-                onSignUp={(form) => {
+                onSignUp={(user, token) => {
+                  setCurrentUser(user);
                   setIsAuthenticated(true);
+                  setIsAdmin(user.role === 'admin');
                   setCurrentView(null);
                   setCurrentPage('account');
                 }}
@@ -382,7 +435,8 @@ function App() {
                   setCurrentView(null);
                   setCurrentPage('home');
                 }}
-                onLogin={(admin) => {
+                onLogin={(user, token) => {
+                  setCurrentUser(user);
                   setIsAdmin(true);
                   setIsAuthenticated(true);
                   setCurrentView('admin-dashboard');
@@ -392,12 +446,7 @@ function App() {
             )}
             {currentView === 'admin-dashboard' && (
               <AdminDashboard
-                onSignOut={() => {
-                  setIsAdmin(false);
-                  setIsAuthenticated(false);
-                  setCurrentView(null);
-                  setCurrentPage('home');
-                }}
+                onSignOut={handleSignOut}
               />
             )}
           </>
@@ -424,10 +473,13 @@ function App() {
                 currentTheme={theme}
                 onLoginClick={() => setCurrentView('login')}
                 onSignUpClick={() => setCurrentView('signup')}
+                isAuthenticated={isAuthenticated}
+                currentUser={currentUser}
+                onSignOut={handleSignOut}
               />
             )}
             {currentPage === 'account' && (
-              <Profile />
+              <Profile currentUser={currentUser} onUpdateUser={handleUserUpdate} />
             )}
             {currentPage === 'create' && (
           <JadwalCreationPage

@@ -2,6 +2,11 @@ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
+import UserModel from "./models/User.js";
+import ProgramModel, { ProgramInfoModel } from "./models/Program.js";
+import authRoutes from "./routes/authRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 
 const app = express();
 dotenv.config();
@@ -26,167 +31,8 @@ mongoose
     console.log(err);
   });
 
-const userSchema = new mongoose.Schema({
-    // Mongoose will automatically create an _id of type ObjectId,
-    // so you usually don't need to define _id manually.
-    username: {
-        type: String,
-        required: true,
-    },
-    email: {
-        type: String,
-        required: true,
-        unique: true,
-    },
-    role: {
-        type: String,
-        enum: ["guest", "user", "admin"],
-        default: "guest",
-    },
-    // "Vault" of saved programs (store references to another collection)
-    savedPrograms: [
-        {
-            programId: {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: "programs",
-            },
-            savedAt: {
-                type: Date,
-                default: Date.now,
-            },
-            status: {
-                type: String,
-                default: "active", // e.g., active, completed, archived
-            },
-        },
-    ],
 
-    // Personal stats
-    createdProgramCount: {
-        type: Number,
-        default: 0,
-    },
-    joinedAt: {
-        type: Date,
-        default: Date.now,
-    },
-});
-
-
-// ============================================
-// Program info module (days / exercises / sets)
-// Matches the structure used in App.jsx templates
-// ============================================
-
-const setSchema = new mongoose.Schema(
-  {
-    id: { type: Number, required: true },
-    weight: { type: String, default: "" },
-    reps: { type: String, default: "" },
-  },
-  { _id: false }
-);
-
-const exerciseSchema = new mongoose.Schema(
-  {
-    id: { type: Number, required: true },
-    name: { type: String, required: true },
-    muscle: { type: String, required: true },
-    unit: { type: String, default: "KG" },
-    sets: { type: [setSchema], default: [] },
-    notes: { type: String, default: "" },
-  },
-  { _id: false }
-);
-
-const daySchema = new mongoose.Schema(
-  {
-    id: { type: Number, required: true },
-    exercises: { type: [exerciseSchema], default: [] },
-  },
-  { _id: false }
-);
-
-const programInfoSchema = new mongoose.Schema(
-  {
-    days: { type: [daySchema], default: [] },
-  },
-  { _id: false }
-);
-
-
-const programSchema = new mongoose.Schema(
-  {
-    // Mongoose will create _id automatically as ObjectId
-
-    // Basic Metadata
-    title: {
-      type: String,
-      required: true,
-    },
-    shortLabel: {
-      type: String,
-    },
-    summary: {
-      type: String,
-    },
-    description: {
-      type: String,
-    },
-
-    // Categorization
-    tags: [
-      {
-        type: String,
-      },
-    ], // Array of strings
-    durationHint: {
-      type: String,
-    },
-
-    // Distinction Logic (Crucial for your data)
-    type: {
-      type: String,
-      enum: ["system", "community"],
-      default: "community",
-    }, // 'system' (built-in), 'community' (user-generated)
-    isPublic: {
-      type: Boolean,
-      default: true, // If false, only the author sees it
-    },
-
-    // Relationships
-    authorId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "users", // refers to UserModel collection
-      default: null, // Null if it's a 'Built-in'
-    },
-    authorName: {
-      type: String, // Cache the name to avoid extra lookups
-    },
-
-    // Stats
-    rating: {
-      type: Number,
-      default: 0,
-    },
-    ratingCount: {
-      type: Number,
-      default: 0, // To calculate averages
-    },
-
-    // Detailed program information (days / exercises / sets)
-    programInfo: {
-      type: programInfoSchema,
-      default: () => ({ days: [] }),
-    },
-  },
-  {
-    // Timestamps
-    timestamps: true, // automatically adds createdAt and updatedAt
-  }
-);
-
+// Category Schema (still defined here as it's only used in index.js)
 const categorySchema = new mongoose.Schema({
     // Collection: categories
     label: {
@@ -203,16 +49,23 @@ const categorySchema = new mongoose.Schema({
         required: true,
     },
 });
-    
 
-const UserModel = mongoose.model("users", userSchema);
-const ProgramModel = mongoose.model("programs", programSchema);
-const ProgramInfoModel = mongoose.model("programsInfo", programSchema);
+// Note: ProgramModel and ProgramInfoModel are now imported from ./models/Program.js
 const CategoryModel = mongoose.model("categories", categorySchema);
 
+// Routes
 app.get("/", (req, res) => {
     res.send("Hello World");
 });
+
+// Authentication routes
+app.use("/api/auth", authRoutes);
+
+// User routes (profile management)
+app.use("/api/users", userRoutes);
+
+// Admin routes
+app.use("/api/admin", adminRoutes);
 
 
 app.get("/getUsers", async (req, res) => {
