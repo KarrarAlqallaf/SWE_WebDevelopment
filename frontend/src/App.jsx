@@ -102,7 +102,6 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [programInfos, setProgramInfos] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
 
   // Initialize theme from HTML or localStorage
   useEffect(() => {
@@ -165,7 +164,6 @@ function App() {
 
         // Build vault items from first user’s saved programs
         const firstUser = (userData || [])[0];
-        setCurrentUser(firstUser || null);
         if (firstUser && Array.isArray(firstUser.savedPrograms)) {
           const programsById = new Map(
             (programData || []).map((p) => [String(p._id), p])
@@ -304,26 +302,10 @@ function App() {
     setCurrentPage('jadwal-builder');
   };
 
-  const handleSaveToVault = async (schedule) => {
+  const handleSaveToVault = (schedule) => {
     console.log('Saving to vault:', schedule);
-
-    try {
-      if (currentUser?._id && schedule?.programId) {
-        await fetch(`${API_BASE_URL}/users/${currentUser._id}/saved-programs`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            programId: schedule.programId,
-            status: 'active',
-          }),
-        });
-      }
-
-      alert(`Schedule "${schedule.name}" saved to vault!`);
-    } catch (err) {
-      console.error(err);
-      alert('Failed to save schedule. Please try again.');
-    }
+    // In real app, this would update vault items state
+    alert(`Schedule "${schedule.name}" saved to vault!`);
   };
 
   // Check if we're on an auth page (should hide sidebar)
@@ -438,62 +420,20 @@ function App() {
           />
         )}
         {currentPage === 'jadwal-builder' && (
-        <JadwalBuilder
+          <JadwalBuilder
             builtInProgram={selectedBuiltInProgram}
             isCustom={!selectedBuiltInProgram}
-            initialCategories={creationCategories}
-            onSave={async (schedule) => {
+            onSave={(schedule) => {
               console.log('Saving schedule to vault:', schedule);
-
-              try {
-                // 1) Create a program document with this schedule as programInfo
-                const programRes = await fetch(`${API_BASE_URL}/programs`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    title: schedule.name,
-                    shortLabel: schedule.shortLabel || '',
-                    summary: schedule.summary || '',
-                    description: schedule.description || '',
-                    tags: schedule.tags || [],
-                    durationHint: schedule.durationHint || '',
-                    type: 'community',
-                    isPublic: true,
-                    authorName: currentUser?.username || 'You',
-                    programInfo: schedule,
-                  }),
-                });
-
-                if (!programRes.ok) {
-                  throw new Error('Failed to create program');
-                }
-
-                const createdProgram = await programRes.json();
-
-                // 2) If we have a current user, add this program to their savedPrograms
-                if (currentUser?._id) {
-                  const savedRes = await fetch(
-                    `${API_BASE_URL}/users/${currentUser._id}/saved-programs`,
-                    {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        programId: createdProgram._id,
-                        status: 'active',
-                      }),
-                    }
-                  );
-
-                  if (!savedRes.ok) {
-                    throw new Error('Failed to add program to user vault');
-                  }
-                }
-
-                alert(`Schedule "${schedule.name}" saved to vault!`);
-              } catch (err) {
-                console.error(err);
-                alert('Failed to save schedule. Please try again.');
-              }
+              // Add to vault items
+              const newVaultItem = {
+                id: Date.now().toString(),
+                title: schedule.name,
+                author: 'You',
+                schedule: schedule
+              };
+              // In real app, this would save to backend/localStorage
+              alert(`Schedule "${schedule.name}" saved to vault!`);
             }}
           />
         )}
