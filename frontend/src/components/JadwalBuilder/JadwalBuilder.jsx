@@ -1,25 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MuscleSelection from '../MuscleSelection/MuscleSelection';
 import ExerciseSelection from '../ExerciseSelection/ExerciseSelection';
 import ExerciseCreation from '../ExerciseCreation/ExerciseCreation';
 import './JadwalBuilder.css';
+import { idGenerator } from '../../utils/idGenerator';
 
 const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, isCustom = true }) => {
+  // Initialize idGenerator before using it
+  const getInitialDays = () => {
+    if (builtInProgram) {
+      return builtInProgram.days;
+    } else {
+      idGenerator.reset();
+      return [{ id: idGenerator.getDayId(), exercises: [] }];
+    }
+  };
+
   const [scheduleName, setScheduleName] = useState('');
   const [shortLabel, setShortLabel] = useState(builtInProgram?.shortLabel || '');
+  const [summary, setSummary] = useState(builtInProgram?.summary || '');
   const [description, setDescription] = useState(builtInProgram?.description || '');
   const [durationHint, setDurationHint] = useState(builtInProgram?.durationHint || '');
   const [tags, setTags] = useState(builtInProgram?.tags || []);
   const [isPublic, setIsPublic] = useState(
     typeof builtInProgram?.isPublic === 'boolean' ? builtInProgram.isPublic : true
   );
-  const [days, setDays] = useState(builtInProgram ? builtInProgram.days : [{ id: 1, exercises: [] }]);
+  const [days, setDays] = useState(getInitialDays);
   const [activeDayId, setActiveDayId] = useState(1);
   const [showMuscleSelection, setShowMuscleSelection] = useState(false);
   const [selectedMuscle, setSelectedMuscle] = useState(null);
   const [showExerciseSelection, setShowExerciseSelection] = useState(false);
   const [dayToDelete, setDayToDelete] = useState(null);
   const [exerciseToEdit, setExerciseToEdit] = useState(null);
+
+  // Set ID generator counters when builtInProgram changes
+  useEffect(() => {
+    // If we have a builtInProgram, set counters to max existing IDs + 1
+    if (builtInProgram?.days) {
+      let maxDayId = 0;
+      let maxExerciseId = 0;
+      let maxSetId = 0;
+
+      builtInProgram.days.forEach(day => {
+        if (day.id > maxDayId) maxDayId = day.id;
+
+        day.exercises?.forEach(exercise => {
+          if (exercise.id > maxExerciseId) maxExerciseId = exercise.id;
+
+          exercise.sets?.forEach(set => {
+            if (set.id > maxSetId) maxSetId = set.id;
+          });
+        });
+      });
+
+      // Set counters to one more than the max
+      idGenerator.dayCounter = maxDayId + 1;
+      idGenerator.exerciseCounter = maxExerciseId + 1;
+      idGenerator.setCounter = maxSetId + 1;
+    }
+  }, [builtInProgram]);
 
   const activeDay = days.find(d => d.id === activeDayId);
   const hasExercises = activeDay?.exercises.length > 0;
@@ -36,7 +75,7 @@ const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, 
 
   const handleAddDay = () => {
     if (days.length < 7) {
-      const newDayId = days.length + 1;
+      const newDayId = idGenerator.getDayId();
       setDays([...days, { id: newDayId, exercises: [] }]);
       setActiveDayId(newDayId);
     }
@@ -45,7 +84,7 @@ const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, 
   const handleDeleteDay = (dayId, e) => {
     e.stopPropagation();
     const day = days.find(d => d.id === dayId);
-    
+
     if (day.exercises.length > 0) {
       setDayToDelete(dayId);
     } else {
@@ -54,18 +93,23 @@ const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, 
   };
 
   const confirmDeleteDay = (dayId) => {
-    const newDays = days
-      .filter(d => d.id !== dayId)
-      .map((d, index) => ({ ...d, id: index + 1 }));
-    
-    setDays(newDays);
-    
+    const newDays = days.filter(d => d.id !== dayId);
+
+    // Renumber days sequentially for UI consistency
+    const renumberedDays = newDays.map((d, index) => ({ ...d, id: index + 1 }));
+
+    setDays(renumberedDays);
+
+    // Adjust active day
     if (activeDayId === dayId) {
-      setActiveDayId(newDays.length > 0 ? newDays[0].id : 1);
+      setActiveDayId(renumberedDays.length > 0 ? renumberedDays[0].id : 1);
     } else if (activeDayId > dayId) {
       setActiveDayId(activeDayId - 1);
     }
-    
+
+    // Reset day counter to account for renumbering
+    idGenerator.dayCounter = renumberedDays.length + 1;
+
     setDayToDelete(null);
   };
 
@@ -92,20 +136,20 @@ const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, 
   };
 
   const handleExerciseSelect = (exercise) => {
-    const exerciseId = Date.now() + Math.random();
+    const exerciseId = idGenerator.getExerciseId();
     const newExercise = {
       id: exerciseId,
       name: exercise,
       muscle: selectedMuscle,
       unit: 'KG',
       sets: [
-        { id: Date.now() + Math.random(), weight: '', reps: '' },
-        { id: Date.now() + Math.random() + 1, weight: '', reps: '' },
-        { id: Date.now() + Math.random() + 2, weight: '', reps: '' }
+        { id: idGenerator.getSetId(), weight: '', reps: '' },
+        { id: idGenerator.getSetId(), weight: '', reps: '' },
+        { id: idGenerator.getSetId(), weight: '', reps: '' }
       ],
       notes: ''
     };
-    
+
     const updatedDays = days.map(day => {
       if (day.id === activeDayId) {
         return {
@@ -135,7 +179,7 @@ const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, 
       if (day.id === activeDayId) {
         return {
           ...day,
-          exercises: day.exercises.map(ex => 
+          exercises: day.exercises.map(ex =>
             ex.id === exerciseId ? { ...ex, ...updatedData } : ex
           )
         };
@@ -178,8 +222,8 @@ const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, 
         if (day.id === activeDayId) {
           return {
             ...day,
-            exercises: day.exercises.map(ex => 
-              ex.id === exerciseToEdit.id 
+            exercises: day.exercises.map(ex =>
+              ex.id === exerciseToEdit.id
                 ? { ...ex, name: exercise, muscle: selectedMuscle }
                 : ex
             )
@@ -237,6 +281,20 @@ const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, 
                 placeholder="e.g. 4 days / wk, Push / Pull"
                 value={shortLabel}
                 onChange={(e) => setShortLabel(e.target.value)}
+              />
+            </div>
+
+            <div className="jadwal-builder__field">
+              <label className="jadwal-builder__label" htmlFor="jadwal-summary">
+                Summary
+              </label>
+              <input
+                id="jadwal-summary"
+                type="text"
+                className="jadwal-builder__text-input"
+                placeholder="Brief summary of this program..."
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
               />
             </div>
 
@@ -371,6 +429,7 @@ const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, 
                   onSave({
                     name: scheduleName || 'Untitled Schedule',
                     shortLabel,
+                    summary,
                     description,
                     durationHint,
                     tags,
@@ -456,4 +515,3 @@ const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, 
 };
 
 export default JadwalBuilder;
-

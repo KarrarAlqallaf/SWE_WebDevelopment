@@ -1,29 +1,30 @@
 import React, { useState } from 'react';
 import './ExerciseCreation.css';
+import { idGenerator } from '../../utils/idGenerator';
 
-const ExerciseCreation = ({ 
-  exercise: exerciseData, 
-  muscle, 
-  onEdit, 
-  onDelete, 
+const ExerciseCreation = ({
+  exercise: exerciseData,
+  muscle,
+  onEdit,
+  onDelete,
   onShare,
-  onUpdate 
+  onUpdate
 }) => {
   const [unit, setUnit] = useState(exerciseData?.unit || 'KG');
   const [sets, setSets] = useState(exerciseData?.sets || [
-    { id: Date.now(), weight: '', reps: '' },
-    { id: Date.now() + 1, weight: '', reps: '' },
-    { id: Date.now() + 2, weight: '', reps: '' }
+    { id: idGenerator.getSetId(), weight: '', reps: '' },
+    { id: idGenerator.getSetId(), weight: '', reps: '' },
+    { id: idGenerator.getSetId(), weight: '', reps: '' }
   ]);
   const [notes, setNotes] = useState(exerciseData?.notes || '');
   const [showExerciseMenu, setShowExerciseMenu] = useState(false);
   const [showSetMenu, setShowSetMenu] = useState(null);
-  
+
   const exerciseName = exerciseData?.name || exerciseData || '';
 
   const handleAddSet = () => {
     const newSet = {
-      id: Date.now() + Math.random(),
+      id: idGenerator.getSetId(),
       weight: '',
       reps: ''
     };
@@ -44,7 +45,7 @@ const ExerciseCreation = ({
   };
 
   const handleSetChange = (setId, field, value) => {
-    const newSets = sets.map(set => 
+    const newSets = sets.map(set =>
       set.id === setId ? { ...set, [field]: value } : set
     );
     setSets(newSets);
@@ -142,7 +143,7 @@ const ExerciseCreation = ({
             </button>
             {showExerciseMenu && (
               <>
-                <div 
+                <div
                   className="exercise-creation__menu-backdrop"
                   onClick={() => setShowExerciseMenu(false)}
                 />
@@ -247,7 +248,7 @@ const ExerciseCreation = ({
               </button>
               {showSetMenu === set.id && (
                 <>
-                  <div 
+                  <div
                     className="exercise-creation__menu-backdrop"
                     onClick={() => setShowSetMenu(null)}
                   />

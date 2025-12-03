@@ -15,32 +15,36 @@ const ProgramCard = ({ program, onClick }) => {
     }
   };
 
+  const handleProgramSelect = (program) => {
+    if (onSelectProgram) {
+      onSelectProgram(program);
+    } else {
+      console.log('Selected built-in program:', program);
+    }
+  };
+
   return (
-    <button
-      type="button"
-      className="program-card program-card--popular"
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
-      aria-label={`Open ${program.title}${program.author ? ` by ${program.author}` : ''}`}
-    >
-      <div className="program-card__meta">
-        {program.shortLabel && (
-          <span className="program-card__label">{program.shortLabel}</span>
-        )}
-        {program.durationHint && (
-          <span className="program-card__duration">{program.durationHint}</span>
-        )}
-      </div>
-      <h3 className="program-card__title">{program.title}</h3>
-      <p className="program-card__description">{program.description || program.summary}</p>
-      {program.tags && program.tags.length > 0 && (
-        <ul className="program-card__tags">
-          {program.tags.map((tag) => (
-            <li key={tag}>{tag}</li>
-          ))}
-        </ul>
-      )}
-    </button>
+  <button
+    key={program.id}
+    type="button"
+    className="jadwal-program-card"
+    onClick={() => handleProgramSelect(program)}
+    aria-label={`Select ${program.title}`}
+  >
+    <div className="jadwal-program-card__meta">
+      <span className="jadwal-program-card__label">{program.shortLabel}</span>
+      <span className="jadwal-program-card__duration">{program.durationHint}</span>
+    </div>
+    <h3>{program.title}</h3>
+    <p>{program.description}</p>
+    {program.tags?.length > 0 && (
+      <ul className="jadwal-program-card__tags">
+        {program.tags.map((tag) => (
+          <li key={tag}>{tag}</li>
+        ))}
+      </ul>
+    )}
+  </button>
   );
 };
 

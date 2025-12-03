@@ -101,7 +101,7 @@ function App() {
   const [vaultItems, setVaultItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [programInfos, setProgramInfos] = useState([]);
+  // const [programInfos, setProgramInfos] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
 
   // Initialize theme from HTML or localStorage
@@ -116,22 +116,22 @@ function App() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [programRes, categoryRes, userRes, programInfoRes] = await Promise.all([
+        const [programRes, categoryRes, userRes] = await Promise.all([
           fetch(`${API_BASE_URL}/getPrograms`),
           fetch(`${API_BASE_URL}/getCategories`),
           fetch(`${API_BASE_URL}/getUsers`),
-          fetch(`${API_BASE_URL}/programsinfos`),
+          // fetch(`${API_BASE_URL}/programsinfos`),
         ]);
 
-        if (!programRes.ok || !categoryRes.ok || !userRes.ok || !programInfoRes.ok) {
+        if (!programRes.ok || !categoryRes.ok || !userRes.ok) {
           throw new Error('Failed to load data from server');
         }
 
-        const [programData, categoryData, userData, programInfoData] = await Promise.all([
+        const [programData, categoryData, userData] = await Promise.all([
           programRes.json(),
           categoryRes.json(),
           userRes.json(),
-          programInfoRes.json(),
+          // programInfoRes.json(),
         ]);
 
         // Map programs to UI shape
@@ -147,6 +147,7 @@ function App() {
             description: p.description || '',
             tags: p.tags || [],
             type: p.type,
+            programInfo: p.programInfo,
           }))
         );
 
@@ -161,7 +162,7 @@ function App() {
         );
 
         // Store detailed programInfo docs
-        setProgramInfos(programInfoData || []);
+        // setProgramInfos(programInfoData || []);
 
         // Build vault items from first user’s saved programs
         const firstUser = (userData || [])[0];
@@ -204,7 +205,7 @@ function App() {
     fetchData();
   }, []);
 
-  
+
   const handleThemeToggle = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
@@ -227,7 +228,7 @@ function App() {
 
   const handleOpenProgram = (id) => {
     console.log('Open program:', id);
-    
+
     const program = programs.find(p => p.id === id);
     if (program) {
       setSelectedProgram(program);
@@ -245,7 +246,7 @@ function App() {
   const handleOpenProgramDetail = (programKey) => {
     console.log('Opening program detail page for:', programKey);
     setIsProgramDetailOpen(false);
-    
+
     // Check if this program maps to a built-in template
     const template = getBuiltInProgramTemplate(programKey);
     if (template) {
@@ -253,7 +254,7 @@ function App() {
       setCurrentPage('program-detail');
       return;
     }
-    
+
     // For other programs, show empty detail page
     setProgramDetailView('detail');
     setCurrentPage('program-detail');
@@ -280,13 +281,11 @@ function App() {
   }));
 
   const getBuiltInProgramTemplate = (programKey) => {
-    if (!programKey || !Array.isArray(programInfos)) return null;
-
-    const match = programInfos.find((p) => p.title === programKey || p.shortLabel === programKey);
+    if (!programKey || !Array.isArray(programs)) return null;
+    const match = programs.find((p) => p.title === programKey || p.shortLabel === programKey);
     if (match && match.programInfo && Array.isArray(match.programInfo.days)) {
       return match.programInfo;
     }
-
     return null;
   };
 
@@ -309,7 +308,8 @@ function App() {
 
     try {
       if (currentUser?._id && schedule?.programId) {
-        await fetch(`${API_BASE_URL}/users/${currentUser._id}/saved-programs`, {
+        // 1. Await the fetch and store the response
+        const response = await fetch(`${API_BASE_URL}/users/${currentUser._id}/saved-programs`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -317,12 +317,21 @@ function App() {
             status: 'active',
           }),
         });
-      }
 
-      alert(`Schedule "${schedule.name}" saved to vault!`);
+        // 2. CHECK THE RESPONSE STATUS
+        if (!response.ok) {
+          // If status is 4xx or 5xx, throw an error to go to the catch block
+          const errorData = await response.json(); // Attempt to read error message from body
+          throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
+        }
+
+        // 3. ONLY run success alert if response.ok is true
+        alert(`Schedule "${schedule.name}" saved to vault!`);
+      }
     } catch (err) {
       console.error(err);
-      alert('Failed to save schedule. Please try again.');
+      // Use the error message from the response if available
+      alert(`Failed to save schedule. Please try again. Error: ${err.message}`);
     }
   };
 
@@ -430,85 +439,87 @@ function App() {
               <Profile />
             )}
             {currentPage === 'create' && (
-          <JadwalCreationPage
-            programs={builtInPrograms}
-            categories={creationCategories}
-            onSelectProgram={handleSelectBuiltInProgram}
-            onCreateCustom={handleCreateCustomJadwal}
-          />
-        )}
-        {currentPage === 'jadwal-builder' && (
-        <JadwalBuilder
-            builtInProgram={selectedBuiltInProgram}
-            isCustom={!selectedBuiltInProgram}
-            initialCategories={creationCategories}
-            onSave={async (schedule) => {
-              console.log('Saving schedule to vault:', schedule);
+              <JadwalCreationPage
+                programs={builtInPrograms}
+                categories={creationCategories}
+                onSelectProgram={handleSelectBuiltInProgram}
+                onCreateCustom={handleCreateCustomJadwal}
+              />
+            )}
+            {currentPage === 'jadwal-builder' && (
+              <JadwalBuilder
+                builtInProgram={selectedBuiltInProgram}
+                isCustom={!selectedBuiltInProgram}
+                initialCategories={creationCategories}
+                onSave={async (schedule) => {
+                  console.log('Saving schedule to vault:', schedule);
 
-              try {
-                // 1) Create a program document with this schedule as programInfo
-                const programRes = await fetch(`${API_BASE_URL}/programs`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    title: schedule.name,
-                    shortLabel: schedule.shortLabel || '',
-                    summary: schedule.summary || '',
-                    description: schedule.description || '',
-                    tags: schedule.tags || [],
-                    durationHint: schedule.durationHint || '',
-                    type: 'community',
-                    isPublic: true,
-                    authorName: currentUser?.username || 'You',
-                    programInfo: schedule,
-                  }),
-                });
-
-                if (!programRes.ok) {
-                  throw new Error('Failed to create program');
-                }
-
-                const createdProgram = await programRes.json();
-
-                // 2) If we have a current user, add this program to their savedPrograms
-                if (currentUser?._id) {
-                  const savedRes = await fetch(
-                    `${API_BASE_URL}/users/${currentUser._id}/saved-programs`,
-                    {
+                  try {
+                    // 1) Create a program document with this schedule as program
+                    const programRes = await fetch(`${API_BASE_URL}/programs`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
-                        programId: createdProgram._id,
-                        status: 'active',
+                        title: schedule.name,
+                        shortLabel: schedule.shortLabel || '',
+                        summary: schedule.summary || '',
+                        description: schedule.description || '',
+                        tags: schedule.tags || [],
+                        durationHint: schedule.durationHint || '',
+                        type: 'community',
+                        isPublic: schedule.isPublic !== undefined ? schedule.isPublic : true,
+                        authorId: currentUser?._id || null,
+                        authorName: currentUser?.username || 'Guest',
+                        programInfo: { days: schedule.days || [] }, // ✅ CORRECT - Only days array
                       }),
+                    });
+
+                    if (!programRes.ok) {
+                      const errorData = await programRes.json().catch(() => ({}));
+                      throw new Error(errorData.message || errorData.error || 'Failed to create program');
                     }
-                  );
 
-                  if (!savedRes.ok) {
-                    throw new Error('Failed to add program to user vault');
+                    const createdProgram = await programRes.json();
+
+                    // 2) If we have a current user, add this program to their savedPrograms
+                    if (currentUser?._id) {
+                      const savedRes = await fetch(
+                        `${API_BASE_URL}/users/${currentUser._id}/saved-programs`,
+                        {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            programId: createdProgram._id,
+                            status: 'active',
+                          }),
+                        }
+                      );
+
+                      if (!savedRes.ok) {
+                        throw new Error('Failed to add program to user vault');
+                      }
+                    }
+
+                    alert(`Schedule "${schedule.name}" saved to vault!`);
+                  } catch (err) {
+                    console.error(err);
+                    alert('Failed to save schedule. Please try again.');
                   }
-                }
-
-                alert(`Schedule "${schedule.name}" saved to vault!`);
-              } catch (err) {
-                console.error(err);
-                alert('Failed to save schedule. Please try again.');
-              }
-            }}
-          />
-        )}
-        {currentPage === 'program-detail' && selectedBuiltInProgram && (
-          <ProgramDetail
-            programData={selectedBuiltInProgram}
-            scheduleName=""
-            isEditable={false}
-            onModify={() => {
-              // Switch to builder mode - keep the same program data
-              setCurrentPage('jadwal-builder');
-            }}
-            onSave={handleSaveToVault}
-          />
-        )}
+                }}
+              />
+            )}
+            {currentPage === 'program-detail' && selectedBuiltInProgram && (
+              <ProgramDetail
+                programData={selectedBuiltInProgram}
+                scheduleName=""
+                isEditable={false}
+                onModify={() => {
+                  // Switch to builder mode - keep the same program data
+                  setCurrentPage('jadwal-builder');
+                }}
+                onSave={handleSaveToVault}
+              />
+            )}
             {currentPage === 'vault' && (
               <Vault
                 vaultItems={vaultItems}
