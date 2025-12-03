@@ -6,26 +6,15 @@ import './JadwalBuilder.css';
 import { idGenerator } from '../../utils/idGenerator';
 
 const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, isCustom = true }) => {
-  // Initialize idGenerator before using it
-  const getInitialDays = () => {
-    if (builtInProgram) {
-      return builtInProgram.days;
-    } else {
-      idGenerator.reset();
-      return [{ id: idGenerator.getDayId(), exercises: [] }];
-    }
-  };
-
   const [scheduleName, setScheduleName] = useState('');
   const [shortLabel, setShortLabel] = useState(builtInProgram?.shortLabel || '');
-  const [summary, setSummary] = useState(builtInProgram?.summary || '');
   const [description, setDescription] = useState(builtInProgram?.description || '');
   const [durationHint, setDurationHint] = useState(builtInProgram?.durationHint || '');
   const [tags, setTags] = useState(builtInProgram?.tags || []);
   const [isPublic, setIsPublic] = useState(
     typeof builtInProgram?.isPublic === 'boolean' ? builtInProgram.isPublic : true
   );
-  const [days, setDays] = useState(getInitialDays);
+  const [days, setDays] = useState(builtInProgram ? builtInProgram.days : [{ id: 1, exercises: [] }]);
   const [activeDayId, setActiveDayId] = useState(1);
   const [showMuscleSelection, setShowMuscleSelection] = useState(false);
   const [selectedMuscle, setSelectedMuscle] = useState(null);
@@ -33,8 +22,10 @@ const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, 
   const [dayToDelete, setDayToDelete] = useState(null);
   const [exerciseToEdit, setExerciseToEdit] = useState(null);
 
-  // Set ID generator counters when builtInProgram changes
+  // Reset ID generator when component mounts or when builtInProgram changes
   useEffect(() => {
+    idGenerator.reset();
+
     // If we have a builtInProgram, set counters to max existing IDs + 1
     if (builtInProgram?.days) {
       let maxDayId = 0;
@@ -285,20 +276,6 @@ const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, 
             </div>
 
             <div className="jadwal-builder__field">
-              <label className="jadwal-builder__label" htmlFor="jadwal-summary">
-                Summary
-              </label>
-              <input
-                id="jadwal-summary"
-                type="text"
-                className="jadwal-builder__text-input"
-                placeholder="Brief summary of this program..."
-                value={summary}
-                onChange={(e) => setSummary(e.target.value)}
-              />
-            </div>
-
-            <div className="jadwal-builder__field">
               <label className="jadwal-builder__label" htmlFor="jadwal-description">
                 Description
               </label>
@@ -429,7 +406,6 @@ const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, 
                   onSave({
                     name: scheduleName || 'Untitled Schedule',
                     shortLabel,
-                    summary,
                     description,
                     durationHint,
                     tags,
@@ -442,8 +418,8 @@ const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, 
             >
               Save to Vault
             </button>
-          </div>
-        </div>
+          </div >
+        </div >
 
         {dayToDelete && (
           <div className="jadwal-builder__delete-confirm">
@@ -509,8 +485,8 @@ const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, 
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 };
 

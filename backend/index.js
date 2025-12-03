@@ -204,7 +204,7 @@ const programSchema = new mongoose.Schema(
 );
 
 // 2. SECOND: Add middleware to the schema (AFTER schema is defined)
-programSchema.pre('save', async function () {
+programSchema.pre('save', function (next) {
   if (this.programInfo && this.programInfo.days) {
     // Clean all IDs to ensure they're integers
     this.programInfo.days.forEach((day, dayIndex) => {
@@ -223,6 +223,7 @@ programSchema.pre('save', async function () {
       }
     });
   }
+  next();
 });
 
 const categorySchema = new mongoose.Schema({
@@ -289,8 +290,90 @@ app.post("/programs", async (req, res) => {
       programInfo,
     } = req.body;
 
-    // Log the programInfo structure
-    console.log("programInfo received:", JSON.stringify(programInfo, null, 2));
+    app.post("/programs", async (req, res) => {
+      try {
+        console.log("=== Received POST /programs ===");
+        console.log("Request body:", JSON.stringify(req.body, null, 2));
+
+        const {
+          title,
+          shortLabel,
+          summary,
+          description,
+          tags,
+          durationHint,
+          type,
+          isPublic,
+          authorId,
+          authorName,
+          rating,
+          ratingCount,
+          programInfo,
+        } = req.body;
+
+        // Log the programInfo structure
+        console.log("programInfo received:", JSON.stringify(programInfo, null, 2));
+
+        // Normalize all IDs in programInfo to integers
+        const normalizedProgramInfo = programInfo ? {
+          days: (programInfo.days || []).map((day, dayIndex) => ({
+            id: Math.floor(day.id) || dayIndex + 1,
+            exercises: (day.exercises || []).map((exercise, exIndex) => ({
+              id: Math.floor(exercise.id) || exIndex + 1,
+              name: exercise.name,
+              muscle: exercise.muscle,
+              unit: exercise.unit || "KG",
+              sets: (exercise.sets || []).map((set, setIndex) => ({
+                id: Math.floor(set.id) || setIndex + 1,
+                weight: set.weight || "",
+                reps: set.reps || "",
+              })),
+              notes: exercise.notes || "",
+            })),
+          })),
+        } : { days: [] };
+
+        console.log("Normalized programInfo:", JSON.stringify(normalizedProgramInfo, null, 2));
+
+        const program = new ProgramModel({
+          title,
+          shortLabel,
+          summary,
+          description,
+          tags,
+          durationHint,
+          type,
+          isPublic,
+          authorId,
+          authorName,
+          rating,
+          ratingCount,
+          programInfo: normalizedProgramInfo,
+        });
+
+        console.log("About to save program...");
+        const savedProgram = await program.save();
+        console.log("Program saved successfully:", savedProgram._id);
+
+        res.status(201).json(savedProgram);
+      } catch (error) {
+        console.error("=== ERROR in POST /programs ===");
+        console.error("Error name:", error.name);
+        console.error("Error message:", error.message);
+        console.error("Full error:", error);
+
+        // If it's a validation error, log the details
+        if (error.name === 'ValidationError') {
+          console.error("Validation errors:", error.errors);
+        }
+
+        res.status(400).jsn({
+          message: "Failed to create progrm",
+          error: error.message,
+          details: error.name === 'ValidationError' ? error.errors : undefined
+        });
+      }
+    });
 
     // Normalize all IDs in programInfo to integers
     const normalizedProgramInfo = programInfo ? {
@@ -311,8 +394,6 @@ app.post("/programs", async (req, res) => {
       })),
     } : { days: [] };
 
-    console.log("Normalized programInfo:", JSON.stringify(normalizedProgramInfo, null, 2));
-
     const program = new ProgramModel({
       title,
       shortLabel,
@@ -329,26 +410,13 @@ app.post("/programs", async (req, res) => {
       programInfo: normalizedProgramInfo,
     });
 
-    console.log("About to save program...");
     const savedProgram = await program.save();
-    console.log("Program saved successfully:", savedProgram._id);
-
     res.status(201).json(savedProgram);
   } catch (error) {
-    console.error("=== ERROR in POST /programs ===");
-    console.error("Error name:", error.name);
-    console.error("Error message:", error.message);
-    console.error("Full error:", error);
-
-    // If it's a validation error, log the details
-    if (error.name === 'ValidationError') {
-      console.error("Validation errors:", error.errors);
-    }
-
+    console.error("Error creating program:", error);
     res.status(400).json({
       message: "Failed to create program",
-      error: error.message,
-      details: error.name === 'ValidationError' ? error.errors : undefined
+      error: error.message
     });
   }
 });
@@ -422,3 +490,8 @@ app.post("/users/:id/saved-programs", async (req, res) => {
     res.status(400).json({ message: "Failed to add saved program", error: error.message });
   }
 });
+
+// app.get("/programsinfos", async (req, res) => {
+//   const infoData = await ProgramInfoModel.find();
+//   res.json(infoData);
+// });

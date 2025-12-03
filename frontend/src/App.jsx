@@ -468,15 +468,13 @@ function App() {
                         durationHint: schedule.durationHint || '',
                         type: 'community',
                         isPublic: schedule.isPublic !== undefined ? schedule.isPublic : true,
-                        authorId: currentUser?._id || null,
                         authorName: currentUser?.username || 'Guest',
                         programInfo: { days: schedule.days || [] }, // ✅ CORRECT - Only days array
                       }),
                     });
 
                     if (!programRes.ok) {
-                      const errorData = await programRes.json().catch(() => ({}));
-                      throw new Error(errorData.message || errorData.error || 'Failed to create program');
+                      throw new Error('Failed to create program');
                     }
 
                     const createdProgram = await programRes.json();

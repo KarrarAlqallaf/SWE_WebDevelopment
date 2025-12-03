@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import './ExerciseCreation.css';
-import { idGenerator } from '../../utils/idGenerator';
 
 const ExerciseCreation = ({
   exercise: exerciseData,
@@ -12,9 +11,9 @@ const ExerciseCreation = ({
 }) => {
   const [unit, setUnit] = useState(exerciseData?.unit || 'KG');
   const [sets, setSets] = useState(exerciseData?.sets || [
-    { id: idGenerator.getSetId(), weight: '', reps: '' },
-    { id: idGenerator.getSetId(), weight: '', reps: '' },
-    { id: idGenerator.getSetId(), weight: '', reps: '' }
+    { id: Date.now(), weight: '', reps: '' },
+    { id: Date.now() + 1, weight: '', reps: '' },
+    { id: Date.now() + 2, weight: '', reps: '' }
   ]);
   const [notes, setNotes] = useState(exerciseData?.notes || '');
   const [showExerciseMenu, setShowExerciseMenu] = useState(false);
@@ -24,7 +23,7 @@ const ExerciseCreation = ({
 
   const handleAddSet = () => {
     const newSet = {
-      id: idGenerator.getSetId(),
+      id: Date.now() + Math.random(),
       weight: '',
       reps: ''
     };
