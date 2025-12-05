@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 import UserModel from "../models/User.js";
+const JWT_SECRET = process.env.JWT_SECRET;
 
 /**
  * Update user profile (username, email, profile picture)

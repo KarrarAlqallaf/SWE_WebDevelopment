@@ -1,14 +1,25 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import UserModel from "../models/User.js";
+const JWT_SECRET = process.env.JWT_SECRET;
+
 
 /**
  * Generate JWT token
  */
 const generateToken = (userId) => {
-    return jwt.sign({ userId }, process.env.JWT_SECRET, {
-        expiresIn: process.env.JWT_EXPIRES_IN || "7d",
-    });
+    try {
+        if (!process.env.JWT_SECRET) {
+            console.error("[AUTH ERROR] JWT_SECRET is not defined in environment variables");
+            throw new Error("JWT_SECRET is not configured");
+        }
+        return jwt.sign({ userId }, process.env.JWT_SECRET, {
+            expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+        });
+    } catch (error) {
+        console.error("[AUTH ERROR] Failed to generate JWT token:", error.message);
+        throw error;
+    }
 };
 
 /**
@@ -18,12 +29,28 @@ export const signup = async (req, res) => {
     try {
         const { email, username, password } = req.body;
 
+        console.log("[SIGNUP] Attempting to register user:", { email, username });
+
         // Check if user already exists
-        const existingUser = await UserModel.findOne({
-            $or: [{ email }, { username }],
-        });
+        let existingUser;
+        try {
+            existingUser = await UserModel.findOne({
+                $or: [{ email }, { username }],
+            });
+        } catch (dbError) {
+            console.error("[SIGNUP ERROR] Database query failed while checking existing user:", {
+                error: dbError.message,
+                stack: dbError.stack,
+            });
+            throw new Error("Database connection error");
+        }
 
         if (existingUser) {
+            const conflictType = existingUser.email === email ? "email" : "username";
+            console.warn(`[SIGNUP WARNING] ${conflictType} already exists:`, {
+                email: existingUser.email === email ? email : "N/A",
+                username: existingUser.username === username ? username : "N/A",
+            });
             return res.status(400).json({
                 success: false,
                 message: existingUser.email === email
@@ -33,8 +60,18 @@ export const signup = async (req, res) => {
         }
 
         // Hash password
-        const saltRounds = 10;
-        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        let hashedPassword;
+        try {
+            const saltRounds = 10;
+            hashedPassword = await bcrypt.hash(password, saltRounds);
+            console.log("[SIGNUP] Password hashed successfully");
+        } catch (hashError) {
+            console.error("[SIGNUP ERROR] Password hashing failed:", {
+                error: hashError.message,
+                stack: hashError.stack,
+            });
+            throw new Error("Failed to process password");
+        }
 
         // Create new user
         const newUser = new UserModel({
@@ -44,10 +81,37 @@ export const signup = async (req, res) => {
             role: "user", // Default role for signups
         });
 
-        const savedUser = await newUser.save();
+        let savedUser;
+        try {
+            savedUser = await newUser.save();
+            console.log("[SIGNUP SUCCESS] User created successfully:", {
+                userId: savedUser._id,
+                username: savedUser.username,
+                email: savedUser.email,
+            });
+        } catch (saveError) {
+            console.error("[SIGNUP ERROR] Failed to save user to database:", {
+                error: saveError.message,
+                code: saveError.code,
+                keyPattern: saveError.keyPattern,
+                keyValue: saveError.keyValue,
+                stack: saveError.stack,
+            });
+            throw saveError;
+        }
 
         // Generate token
-        const token = generateToken(savedUser._id);
+        let token;
+        try {
+            token = generateToken(savedUser._id);
+            console.log("[SIGNUP] JWT token generated successfully");
+        } catch (tokenError) {
+            console.error("[SIGNUP ERROR] Token generation failed:", {
+                error: tokenError.message,
+                userId: savedUser._id,
+            });
+            throw new Error("Failed to generate authentication token");
+        }
 
         // Return user data (excluding password) and token
         res.status(201).json({
@@ -65,7 +129,11 @@ export const signup = async (req, res) => {
             },
         });
     } catch (error) {
-        console.error("Signup error:", error);
+        console.error("[SIGNUP ERROR] Signup process failed:", {
+            error: error.message,
+            stack: error.stack,
+            name: error.name,
+        });
         res.status(500).json({
             success: false,
             message: "Failed to register user",
@@ -81,20 +149,59 @@ export const login = async (req, res) => {
     try {
         const { username, password } = req.body;
 
+        console.log("[LOGIN] Attempting login for username:", username);
+
         // Find user by username (include password for comparison)
-        const user = await UserModel.findOne({ username }).select("+password");
+        let user;
+        try {
+            user = await UserModel.findOne({ username }).select("+password");
+        } catch (dbError) {
+            console.error("[LOGIN ERROR] Database query failed while finding user:", {
+                error: dbError.message,
+                username,
+                stack: dbError.stack,
+            });
+            throw new Error("Database connection error");
+        }
 
         if (!user) {
+            console.warn("[LOGIN WARNING] User not found:", { username });
             return res.status(401).json({
                 success: false,
                 message: "Invalid username or password",
             });
         }
 
+        // Check if user is banned
+        if (user.isBanned) {
+            console.warn("[LOGIN WARNING] Attempted login by banned user:", {
+                userId: user._id,
+                username: user.username,
+            });
+            return res.status(403).json({
+                success: false,
+                message: "Account has been banned",
+            });
+        }
+
         // Check password
-        const isPasswordValid = await bcrypt.compare(password, user.password);
+        let isPasswordValid;
+        try {
+            isPasswordValid = await bcrypt.compare(password, user.password);
+        } catch (compareError) {
+            console.error("[LOGIN ERROR] Password comparison failed:", {
+                error: compareError.message,
+                userId: user._id,
+                stack: compareError.stack,
+            });
+            throw new Error("Password verification error");
+        }
 
         if (!isPasswordValid) {
+            console.warn("[LOGIN WARNING] Invalid password attempt:", {
+                userId: user._id,
+                username: user.username,
+            });
             return res.status(401).json({
                 success: false,
                 message: "Invalid username or password",
@@ -102,7 +209,21 @@ export const login = async (req, res) => {
         }
 
         // Generate token
-        const token = generateToken(user._id);
+        let token;
+        try {
+            token = generateToken(user._id);
+            console.log("[LOGIN SUCCESS] User logged in successfully:", {
+                userId: user._id,
+                username: user.username,
+                role: user.role,
+            });
+        } catch (tokenError) {
+            console.error("[LOGIN ERROR] Token generation failed:", {
+                error: tokenError.message,
+                userId: user._id,
+            });
+            throw new Error("Failed to generate authentication token");
+        }
 
         // Return user data (excluding password) and token
         res.status(200).json({
@@ -120,7 +241,11 @@ export const login = async (req, res) => {
             },
         });
     } catch (error) {
-        console.error("Login error:", error);
+        console.error("[LOGIN ERROR] Login process failed:", {
+            error: error.message,
+            stack: error.stack,
+            name: error.name,
+        });
         res.status(500).json({
             success: false,
             message: "Login failed",
@@ -136,10 +261,23 @@ export const adminLogin = async (req, res) => {
     try {
         const { username, password } = req.body;
 
+        console.log("[ADMIN LOGIN] Attempting admin login for username:", username);
+
         // Find user by username (include password for comparison)
-        const user = await UserModel.findOne({ username }).select("+password");
+        let user;
+        try {
+            user = await UserModel.findOne({ username }).select("+password");
+        } catch (dbError) {
+            console.error("[ADMIN LOGIN ERROR] Database query failed while finding user:", {
+                error: dbError.message,
+                username,
+                stack: dbError.stack,
+            });
+            throw new Error("Database connection error");
+        }
 
         if (!user) {
+            console.warn("[ADMIN LOGIN WARNING] User not found:", { username });
             return res.status(401).json({
                 success: false,
                 message: "Invalid username or password",
@@ -148,16 +286,47 @@ export const adminLogin = async (req, res) => {
 
         // Check if user is admin
         if (user.role !== "admin") {
+            console.warn("[ADMIN LOGIN WARNING] Non-admin user attempted admin login:", {
+                userId: user._id,
+                username: user.username,
+                role: user.role,
+            });
             return res.status(403).json({
                 success: false,
                 message: "Access denied. Admin privileges required.",
             });
         }
 
+        // Check if user is banned
+        if (user.isBanned) {
+            console.warn("[ADMIN LOGIN WARNING] Attempted login by banned admin user:", {
+                userId: user._id,
+                username: user.username,
+            });
+            return res.status(403).json({
+                success: false,
+                message: "Account has been banned",
+            });
+        }
+
         // Check password
-        const isPasswordValid = await bcrypt.compare(password, user.password);
+        let isPasswordValid;
+        try {
+            isPasswordValid = await bcrypt.compare(password, user.password);
+        } catch (compareError) {
+            console.error("[ADMIN LOGIN ERROR] Password comparison failed:", {
+                error: compareError.message,
+                userId: user._id,
+                stack: compareError.stack,
+            });
+            throw new Error("Password verification error");
+        }
 
         if (!isPasswordValid) {
+            console.warn("[ADMIN LOGIN WARNING] Invalid password attempt for admin:", {
+                userId: user._id,
+                username: user.username,
+            });
             return res.status(401).json({
                 success: false,
                 message: "Invalid username or password",
@@ -165,7 +334,21 @@ export const adminLogin = async (req, res) => {
         }
 
         // Generate token
-        const token = generateToken(user._id);
+        let token;
+        try {
+            token = generateToken(user._id);
+            console.log("[ADMIN LOGIN SUCCESS] Admin logged in successfully:", {
+                userId: user._id,
+                username: user.username,
+                email: user.email,
+            });
+        } catch (tokenError) {
+            console.error("[ADMIN LOGIN ERROR] Token generation failed:", {
+                error: tokenError.message,
+                userId: user._id,
+            });
+            throw new Error("Failed to generate authentication token");
+        }
 
         // Return admin user data (excluding password) and token
         res.status(200).json({
@@ -183,7 +366,11 @@ export const adminLogin = async (req, res) => {
             },
         });
     } catch (error) {
-        console.error("Admin login error:", error);
+        console.error("[ADMIN LOGIN ERROR] Admin login process failed:", {
+            error: error.message,
+            stack: error.stack,
+            name: error.name,
+        });
         res.status(500).json({
             success: false,
             message: "Admin login failed",
@@ -198,6 +385,19 @@ export const adminLogin = async (req, res) => {
 export const getCurrentUser = async (req, res) => {
     try {
         // User is attached to req by authenticateToken middleware
+        if (!req.user) {
+            console.error("[GET CURRENT USER ERROR] User object not found in request");
+            return res.status(401).json({
+                success: false,
+                message: "User not authenticated",
+            });
+        }
+
+        console.log("[GET CURRENT USER] Fetching profile for user:", {
+            userId: req.user._id,
+            username: req.user.username,
+        });
+
         res.status(200).json({
             success: true,
             data: {
@@ -212,7 +412,11 @@ export const getCurrentUser = async (req, res) => {
             },
         });
     } catch (error) {
-        console.error("Get current user error:", error);
+        console.error("[GET CURRENT USER ERROR] Failed to get user profile:", {
+            error: error.message,
+            stack: error.stack,
+            userId: req.user?._id,
+        });
         res.status(500).json({
             success: false,
             message: "Failed to get user profile",

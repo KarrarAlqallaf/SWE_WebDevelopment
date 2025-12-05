@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const setSchema = new mongoose.Schema(
   {

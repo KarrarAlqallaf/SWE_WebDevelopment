@@ -1,5 +1,6 @@
 import UserModel from "../models/User.js";
 import ProgramModel from "../models/Program.js";
+const JWT_SECRET = process.env.JWT_SECRET;
 
 /**
  * Ban a user

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import './ExerciseCreation.css';
 
 const ExerciseCreation = ({ 
@@ -9,11 +9,15 @@ const ExerciseCreation = ({
   onShare,
   onUpdate 
 }) => {
+  // Use a ref to maintain consistent ID counters for this exercise
+  const setIdCounter = useRef(exerciseData?.sets?.length ? 
+    Math.max(...exerciseData.sets.map(s => s.id)) + 1 : 1);
+
   const [unit, setUnit] = useState(exerciseData?.unit || 'KG');
   const [sets, setSets] = useState(exerciseData?.sets || [
-    { id: Date.now(), weight: '', reps: '' },
-    { id: Date.now() + 1, weight: '', reps: '' },
-    { id: Date.now() + 2, weight: '', reps: '' }
+    { id: 1, weight: '', reps: '' },
+    { id: 2, weight: '', reps: '' },
+    { id: 3, weight: '', reps: '' }
   ]);
   const [notes, setNotes] = useState(exerciseData?.notes || '');
   const [showExerciseMenu, setShowExerciseMenu] = useState(false);
@@ -23,7 +27,7 @@ const ExerciseCreation = ({
 
   const handleAddSet = () => {
     const newSet = {
-      id: Date.now() + Math.random(),
+      id: setIdCounter.current++,  // Use counter instead of Date.now()
       weight: '',
       reps: ''
     };
@@ -88,10 +92,10 @@ const ExerciseCreation = ({
       onShare();
     } else {
       // Fallback: copy to clipboard if share not implemented
-      const shareText = `${exercise} - ${sets.length} sets`;
+      const shareText = `${exerciseName} - ${sets.length} sets`;
       if (navigator.share) {
         navigator.share({
-          title: exercise,
+          title: exerciseName,
           text: shareText
         }).catch(() => {
           // Fallback to clipboard
@@ -293,4 +297,3 @@ const ExerciseCreation = ({
 };
 
 export default ExerciseCreation;
-

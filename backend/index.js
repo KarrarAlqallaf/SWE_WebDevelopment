@@ -13,23 +13,67 @@ dotenv.config();
 
 const PORT = process.env.PORT;
 const MONGO_URL = process.env.MONGO_URL;
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// Validate environment variables
+if (!MONGO_URL) {
+    console.error("[STARTUP ERROR] MONGO_URL is not defined in environment variables");
+    console.error("[STARTUP ERROR] Please set MONGO_URL in your .env file");
+    process.exit(1);
+}
+
+if (!PORT) {
+    console.warn("[STARTUP WARNING] PORT is not defined, defaulting to 8000");
+}
+
+if (!process.env.JWT_SECRET) {
+    console.error("[STARTUP ERROR] JWT_SECRET is not defined in environment variables");
+    console.error("[STARTUP ERROR] Authentication will fail without JWT_SECRET");
+}
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
+// Database connection with detailed error handling
+console.log("[STARTUP] Attempting to connect to MongoDB...");
 mongoose
   .connect(MONGO_URL)
   .then(() => {
-    app.listen(PORT, () => {
+    console.log("[STARTUP SUCCESS] MongoDB connected successfully");
+    app.listen(PORT || 8000, () => {
       console.log(
-        ` Database Connected and Server is running on port ${PORT}`
+        `[STARTUP SUCCESS] Database Connected and Server is running on port ${PORT || 8000}`
       );
     });
   })
   .catch((err) => {
-    console.log(err);
+    console.error("[STARTUP ERROR] MongoDB connection failed:", {
+      error: err.message,
+      name: err.name,
+      code: err.code,
+      stack: err.stack,
+    });
+    console.error("[STARTUP ERROR] Please check your MONGO_URL in .env file");
+    console.error("[STARTUP ERROR] Server will not start without database connection");
+    process.exit(1);
   });
+
+// Handle MongoDB connection events
+mongoose.connection.on("error", (err) => {
+    console.error("[MONGO ERROR] MongoDB connection error:", {
+        error: err.message,
+        stack: err.stack,
+    });
+});
+
+mongoose.connection.on("disconnected", () => {
+    console.warn("[MONGO WARNING] MongoDB disconnected");
+});
+
+mongoose.connection.on("reconnected", () => {
+    console.log("[MONGO SUCCESS] MongoDB reconnected");
+});
 
 
 // Category Schema (still defined here as it's only used in index.js)
