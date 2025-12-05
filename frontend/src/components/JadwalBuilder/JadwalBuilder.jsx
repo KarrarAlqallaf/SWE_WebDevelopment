@@ -5,7 +5,7 @@ import ExerciseCreation from '../ExerciseCreation/ExerciseCreation';
 import './JadwalBuilder.css';
 import { idGenerator } from '../../utils/idGenerator';
 
-const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, isCustom = true }) => {
+const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, isCustom = true, initialScheduleName = '' }) => {
   // Initialize idGenerator before using it
   const getInitialDays = () => {
     if (builtInProgram) {
@@ -16,7 +16,7 @@ const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, 
     }
   };
 
-  const [scheduleName, setScheduleName] = useState('');
+  const [scheduleName, setScheduleName] = useState(initialScheduleName || '');
   const [shortLabel, setShortLabel] = useState(builtInProgram?.shortLabel || '');
   const [summary, setSummary] = useState(builtInProgram?.summary || '');
   const [description, setDescription] = useState(builtInProgram?.description || '');
@@ -59,6 +59,13 @@ const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, 
       idGenerator.setCounter = maxSetId + 1;
     }
   }, [builtInProgram]);
+
+  // Sync scheduleName when initialScheduleName prop changes
+  useEffect(() => {
+    if (initialScheduleName) {
+      setScheduleName(initialScheduleName);
+    }
+  }, [initialScheduleName]);
 
   const activeDay = days.find(d => d.id === activeDayId);
   const hasExercises = activeDay?.exercises.length > 0;

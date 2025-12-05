@@ -742,6 +742,13 @@ function App() {
                 builtInProgram={selectedBuiltInProgram}
                 isCustom={!selectedBuiltInProgram}
                 initialCategories={creationCategories}
+                initialScheduleName={
+                  currentProgramId 
+                    ? (programs.find(p => p.id === currentProgramId)?.title || 
+                       vaultItems.find(p => p.id === currentProgramId)?.title || 
+                       '')
+                    : ''
+                }
                 onSave={async (schedule) => {
                   console.log('Saving schedule to vault:', schedule);
 
@@ -808,7 +815,13 @@ function App() {
             {currentPage === 'program-detail' && selectedBuiltInProgram && (
               <ProgramDetail
                 programData={selectedBuiltInProgram}
-                scheduleName=""
+                scheduleName={
+                  currentProgramId 
+                    ? (programs.find(p => p.id === currentProgramId)?.title || 
+                       vaultItems.find(p => p.id === currentProgramId)?.title || 
+                       '')
+                    : ''
+                }
                 isEditable={false}
                 programId={currentProgramId}
                 onModify={() => {
