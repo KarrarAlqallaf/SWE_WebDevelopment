@@ -4,6 +4,7 @@ import {
     login,
     adminLogin,
     getCurrentUser,
+    logout,
 } from "../controllers/authController.js";
 import {
     validateSignup,
@@ -19,8 +20,9 @@ router.post("/signup", validateSignup, signup);
 router.post("/login", validateLogin, login);
 router.post("/admin/login", validateAdminLogin, adminLogin);
 
-// Protected route (requires authentication)
+// Protected routes (requires authentication)
 router.get("/me", authenticateToken, getCurrentUser);
+router.post("/logout", authenticateToken, logout);
 
 export default router;
 

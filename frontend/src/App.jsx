@@ -341,6 +341,68 @@ function App() {
     localStorage.setItem('theme', newTheme);
   };
 
+  const handleLogout = async () => {
+    try {
+      // Call backend logout endpoint (optional - for server-side session cleanup if needed)
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          await fetch(`${API_BASE_URL}/api/auth/logout`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+        } catch (err) {
+          // Logout endpoint is optional, continue even if it fails
+          console.log('Logout endpoint call failed (this is okay):', err);
+        }
+      }
+
+      // Clear local storage
+      localStorage.removeItem('token');
+
+      // Reset state
+      setIsAuthenticated(false);
+      setIsAdmin(false);
+      setCurrentUser(null);
+      setVaultItems([]);
+      setCurrentView(null);
+      setCurrentPage('home');
+
+      // Refresh programs to show only public ones
+      const headers = getFetchHeaders(); // Will be empty now since token is removed
+      const programRes = await fetch(`${API_BASE_URL}/getPrograms`, { headers });
+      if (programRes.ok) {
+        const programData = await programRes.json();
+        setPrograms(
+          (programData || []).map((p) => ({
+            id: p._id,
+            title: p.title,
+            author: p.authorName || 'System',
+            rating: typeof p.rating === 'number' ? p.rating : 0,
+            summary: p.summary || p.description || '',
+            shortLabel: p.shortLabel || '',
+            durationHint: p.durationHint || '',
+            description: p.description || '',
+            tags: p.tags || [],
+            type: p.type,
+            programInfo: p.programInfo,
+          }))
+        );
+      }
+    } catch (err) {
+      console.error('Logout error:', err);
+      // Even if there's an error, clear local state
+      localStorage.removeItem('token');
+      setIsAuthenticated(false);
+      setIsAdmin(false);
+      setCurrentUser(null);
+      setVaultItems([]);
+    }
+  };
+
   const handleNav = (key) => {
     setActiveKey(key);
     console.log('Navigate to:', key);
@@ -717,6 +779,9 @@ function App() {
                 currentTheme={theme}
                 onLoginClick={() => setCurrentView('login')}
                 onSignUpClick={() => setCurrentView('signup')}
+                isAuthenticated={isAuthenticated}
+                currentUser={currentUser}
+                onSignOut={handleLogout}
               />
             )}
             {currentPage === 'account' && (

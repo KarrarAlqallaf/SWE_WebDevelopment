@@ -195,7 +195,7 @@ export default function AdminDashboard({ onSignOut }) {
       <div style={{ position: "relative" }}>
         <h1 className="page-title">Admin Dashboard</h1>
         <button className="signout-btn" onClick={onSignOut}>
-          Sign Out
+          Log Out
         </button>
       </div>
 

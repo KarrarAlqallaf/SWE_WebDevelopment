@@ -211,10 +211,6 @@ const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, 
     setDays(updatedDays);
   };
 
-  const handleExerciseShare = (exercise) => {
-    // Share functionality - can be enhanced later
-    console.log('Sharing exercise:', exercise);
-  };
 
   const handleExerciseSelectForEdit = (exercise) => {
     if (exerciseToEdit) {
@@ -501,7 +497,6 @@ const JadwalBuilder = ({ initialCategories = [], onSave, builtInProgram = null, 
                     muscle={exercise.muscle}
                     onEdit={() => handleExerciseEdit(exercise.id)}
                     onDelete={() => handleExerciseDelete(exercise.id)}
-                    onShare={() => handleExerciseShare(exercise)}
                     onUpdate={(updatedData) => handleExerciseUpdate(exercise.id, updatedData)}
                   />
                 ))}

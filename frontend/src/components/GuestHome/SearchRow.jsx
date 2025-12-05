@@ -113,10 +113,10 @@ const SearchRow = ({
           <button
             type="button"
             className="guest-home__button guest-home__button--outline guest-home__auth-btn"
-            aria-label="Sign out"
+            aria-label="Log out"
             onClick={onSignOut}
           >
-            Sign Out
+            Log Out
           </button>
         </>
       )}
