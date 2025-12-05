@@ -7,6 +7,14 @@ const ProgramDetail = ({ programData, scheduleName, isEditable = false, onModify
   const [activeDayId, setActiveDayId] = React.useState(days.length > 0 ? days[0].id : 1);
   const [name, setName] = React.useState(scheduleName || '');
 
+  // Keep local state in sync when programData changes (e.g., switching via sidebar quicklinks)
+  React.useEffect(() => {
+    const nextDays = programData?.days || [];
+    setDays(nextDays);
+    setActiveDayId(nextDays.length > 0 ? nextDays[0].id : 1);
+    setName(scheduleName || '');
+  }, [programData, scheduleName]);
+
   const activeDay = days.find(d => d.id === activeDayId);
 
   const handleDayClick = (dayId) => {

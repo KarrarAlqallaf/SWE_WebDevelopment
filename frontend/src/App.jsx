@@ -308,6 +308,12 @@ function App() {
   const handleOpenProgram = (id) => {
     console.log('Open program:', id);
 
+    // Reset state so switching programs always works
+    setIsProgramDetailOpen(false);
+    setSelectedProgram(null);
+    setSelectedBuiltInProgram(null);
+    setProgramDetailView(null);
+
     // Check both programs array and vaultItems for the program
     let program = programs.find(p => p.id === id);
     
@@ -317,22 +323,17 @@ function App() {
     }
 
     if (program) {
-      // If program has programInfo.days with exercises, route directly to detail page
-      if (program.programInfo && Array.isArray(program.programInfo.days) && program.programInfo.days.length > 0) {
-        // Check if any day has exercises
-        const hasExercises = program.programInfo.days.some(day => 
-          day.exercises && Array.isArray(day.exercises) && day.exercises.length > 0
-        );
-        
-        if (hasExercises) {
-          // Route directly to program detail page (skip modal)
-          setSelectedBuiltInProgram(program.programInfo);
-          setCurrentPage('program-detail');
-          return;
-        }
+      // Navigate to program detail page context so switching works even outside the vault page
+      setCurrentPage('program-detail');
+
+      // If program has programInfo (even empty), go to detail view
+      if (program.programInfo) {
+        setSelectedBuiltInProgram(program.programInfo);
+        setProgramDetailView('detail');
+        return;
       }
-      
-      // Otherwise, show modal first
+
+      // Otherwise, show modal first (e.g., programs without programInfo yet)
       setSelectedProgram(program);
       setIsProgramDetailOpen(true);
       setProgramDetailView('modal');
