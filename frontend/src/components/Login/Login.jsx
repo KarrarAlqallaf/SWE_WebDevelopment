@@ -1,13 +1,43 @@
 import { useState } from "react";
 import "./Login.css";
 
+const API_BASE_URL = `http://localhost:8000`;
+
 export default function Login({ onBack, onLogin, onOpenSignUp, onOpenAdminLogin }) {
   const [user, setUser] = useState({ username: "", password: "" });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (onLogin) {
-      onLogin(user);
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(user),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Store token
+        localStorage.setItem("token", data.data.token);
+        // Call parent callback with user data
+        if (onLogin) {
+          onLogin(data.data.user, data.data.token);
+        }
+      } else {
+        setError(data.message || "Login failed");
+      }
+    } catch (err) {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -20,6 +50,8 @@ export default function Login({ onBack, onLogin, onOpenSignUp, onOpenAdminLogin 
 
         <h1 className="title">Login</h1>
 
+        {error && <div className="error-message">{error}</div>}
+
         <form className="form" onSubmit={handleSubmit}>
           <div className="field">
             <input
@@ -28,6 +60,7 @@ export default function Login({ onBack, onLogin, onOpenSignUp, onOpenAdminLogin 
               value={user.username}
               onChange={(e) => setUser({ ...user, username: e.target.value })}
               required
+              disabled={loading}
             />
             <span className="icon">👤</span>
           </div>
@@ -39,12 +72,13 @@ export default function Login({ onBack, onLogin, onOpenSignUp, onOpenAdminLogin 
               value={user.password}
               onChange={(e) => setUser({ ...user, password: e.target.value })}
               required
+              disabled={loading}
             />
             <span className="icon">🔒</span>
           </div>
 
-          <button type="submit" className="primary-btn">
-            <span className="btn-text">Login</span>
+          <button type="submit" className="primary-btn" disabled={loading}>
+            <span className="btn-text">{loading ? "Logging in..." : "Login"}</span>
           </button>
         </form>
 
@@ -60,4 +94,3 @@ export default function Login({ onBack, onLogin, onOpenSignUp, onOpenAdminLogin 
     </div>
   );
 }
-

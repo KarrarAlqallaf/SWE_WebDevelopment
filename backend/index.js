@@ -2,28 +2,61 @@ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
+import UserModel from "./models/User.js";
+import ProgramModel, { ProgramInfoModel } from "./models/Program.js";
+import authRoutes from "./routes/authRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 
 const app = express();
 dotenv.config();
 
 const PORT = process.env.PORT;
 const MONGO_URL = process.env.MONGO_URL;
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// Validate environment variables
+if (!MONGO_URL) {
+    console.error("[STARTUP ERROR] MONGO_URL is not defined in environment variables");
+    console.error("[STARTUP ERROR] Please set MONGO_URL in your .env file");
+    process.exit(1);
+}
+
+if (!PORT) {
+    console.warn("[STARTUP WARNING] PORT is not defined, defaulting to 8000");
+}
+
+if (!process.env.JWT_SECRET) {
+    console.error("[STARTUP ERROR] JWT_SECRET is not defined in environment variables");
+    console.error("[STARTUP ERROR] Authentication will fail without JWT_SECRET");
+}
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
+// Database connection with detailed error handling
+console.log("[STARTUP] Attempting to connect to MongoDB...");
 mongoose
   .connect(MONGO_URL)
   .then(() => {
-    app.listen(PORT, () => {
+    console.log("[STARTUP SUCCESS] MongoDB connected successfully");
+    app.listen(PORT || 8000, () => {
       console.log(
-        ` Database Connected and Server is running on port ${PORT}`
+        `[STARTUP SUCCESS] Database Connected and Server is running on port ${PORT || 8000}`
       );
     });
   })
   .catch((err) => {
-    console.log(err);
+    console.error("[STARTUP ERROR] MongoDB connection failed:", {
+      error: err.message,
+      name: err.name,
+      code: err.code,
+      stack: err.stack,
+    });
+    console.error("[STARTUP ERROR] Please check your MONGO_URL in .env file");
+    console.error("[STARTUP ERROR] Server will not start without database connection");
+    process.exit(1);
   });
 
 // ============================================
@@ -32,214 +65,296 @@ mongoose
 
 // 1. FIRST: Define your schemas
 
-const userSchema = new mongoose.Schema({
-  username: {
-    type: String,
-    required: true,
-  },
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-  role: {
-    type: String,
-    enum: ["guest", "user", "admin"],
-    default: "guest",
-  },
-  savedPrograms: [
-    {
-      programId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "programs",
-      },
-      savedAt: {
-        type: Date,
-        default: Date.now,
-      },
-      status: {
-        type: String,
-        default: "active",
-      },
-    },
-  ],
-  createdProgramCount: {
-    type: Number,
-    default: 0,
-  },
-  joinedAt: {
-    type: Date,
-    default: Date.now,
-  },
+// const userSchema = new mongoose.Schema({
+//   username: {
+//     type: String,
+//     required: true,
+//   },
+//   email: {
+//     type: String,
+//     required: true,
+//     unique: true,
+//   },
+//   role: {
+//     type: String,
+//     enum: ["guest", "user", "admin"],
+//     default: "guest",
+//   },
+//   savedPrograms: [
+//     {
+//       programId: {
+//         type: mongoose.Schema.Types.ObjectId,
+//         ref: "programs",
+//       },
+//       savedAt: {
+//         type: Date,
+//         default: Date.now,
+//       },
+//       status: {
+//         type: String,
+//         default: "active",
+//       },
+//     },
+//   ],
+//   createdProgramCount: {
+//     type: Number,
+//     default: 0,
+//   },
+//   joinedAt: {
+//     type: Date,
+//     default: Date.now,
+//   },
+// });
+
+// // Helper function to validate and convert IDs to integers
+// const validateIntegerId = function (value) {
+//   if (typeof value === 'number') {
+//     return Math.floor(value);
+//   }
+//   if (typeof value === 'string') {
+//     const parsed = parseInt(value, 10);
+//     if (!isNaN(parsed)) return parsed;
+//   }
+//   return value;
+// };
+
+// const setSchema = new mongoose.Schema(
+//   {
+//     id: {
+//       type: Number,
+//       required: true,
+//       set: validateIntegerId,
+//       validate: {
+//         validator: Number.isInteger,
+//         message: 'Set ID must be an integer'
+//       }
+//     },
+//     weight: { type: String, default: "" },
+//     reps: { type: String, default: "" },
+//   },
+//   { _id: false }
+// );
+
+// const exerciseSchema = new mongoose.Schema(
+//   {
+//     id: {
+//       type: Number,
+//       required: true,
+//       set: validateIntegerId,
+//       validate: {
+//         validator: Number.isInteger,
+//         message: 'Exercise ID must be an integer'
+//       }
+//     },
+//     name: { type: String, required: true },
+//     muscle: { type: String, required: true },
+//     unit: { type: String, default: "KG" },
+//     sets: { type: [setSchema], default: [] },
+//     notes: { type: String, default: "" },
+//   },
+//   { _id: false }
+// );
+
+// const daySchema = new mongoose.Schema(
+//   {
+//     id: {
+//       type: Number,
+//       required: true,
+//       set: validateIntegerId,
+//       validate: {
+//         validator: Number.isInteger,
+//         message: 'Day ID must be an integer'
+//       }
+//     },
+//     exercises: { type: [exerciseSchema], default: [] },
+//   },
+//   { _id: false }
+// );
+
+// const programInfoSchema = new mongoose.Schema(
+//   {
+//     days: { type: [daySchema], default: [] },
+//   },
+//   { _id: false }
+// );
+
+// const programSchema = new mongoose.Schema(
+//   {
+//     title: {
+//       type: String,
+//       required: true,
+//     },
+//     shortLabel: {
+//       type: String,
+//     },
+//     summary: {
+//       type: String,
+//     },
+//     description: {
+//       type: String,
+//     },
+//     tags: [
+//       {
+//         type: String,
+//       },
+//     ],
+//     durationHint: {
+//       type: String,
+//     },
+//     type: {
+//       type: String,
+//       enum: ["system", "community"],
+//       default: "community",
+//     },
+//     isPublic: {
+//       type: Boolean,
+//       default: true,
+//     },
+//     authorId: {
+//       type: mongoose.Schema.Types.ObjectId,
+//       ref: "users",
+//       default: null,
+//     },
+//     authorName: {
+//       type: String,
+//     },
+//     rating: {
+//       type: Number,
+//       default: 0,
+//     },
+//     ratingCount: {
+//       type: Number,
+//       default: 0,
+//     },
+//     programInfo: {
+//       type: programInfoSchema,
+//       default: () => ({ days: [] }),
+//     },
+//   },
+//   {
+//     timestamps: true,
+//   }
+// );
+
+// // 2. SECOND: Add middleware to the schema (AFTER schema is defined)
+
+// programSchema.pre('save', async function () {
+//   if (this.programInfo && this.programInfo.days) {
+//     // Clean all IDs to ensure they're integers
+//     this.programInfo.days.forEach((day, dayIndex) => {
+//       day.id = Math.floor(day.id) || dayIndex + 1;
+
+//       if (day.exercises) {
+//         day.exercises.forEach((exercise, exIndex) => {
+//           exercise.id = Math.floor(exercise.id) || exIndex + 1;
+
+//           if (exercise.sets) {
+//             exercise.sets.forEach((set, setIndex) => {
+//               set.id = Math.floor(set.id) || setIndex + 1;
+//             });
+//           }
+//         });
+//       }
+// Handle MongoDB connection events
+mongoose.connection.on("error", (err) => {
+    console.error("[MONGO ERROR] MongoDB connection error:", {
+        error: err.message,
+        stack: err.stack,
+    });
 });
 
-// Helper function to validate and convert IDs to integers
-const validateIntegerId = function (value) {
-  if (typeof value === 'number') {
-    return Math.floor(value);
-  }
-  if (typeof value === 'string') {
-    const parsed = parseInt(value, 10);
-    if (!isNaN(parsed)) return parsed;
-  }
-  return value;
-};
+mongoose.connection.on("disconnected", () => {
+    console.warn("[MONGO WARNING] MongoDB disconnected");
+});
 
-const setSchema = new mongoose.Schema(
-  {
-    id: {
-      type: Number,
-      required: true,
-      set: validateIntegerId,
-      validate: {
-        validator: Number.isInteger,
-        message: 'Set ID must be an integer'
-      }
-    },
-    weight: { type: String, default: "" },
-    reps: { type: String, default: "" },
-  },
-  { _id: false }
-);
+mongoose.connection.on("reconnected", () => {
+    console.log("[MONGO SUCCESS] MongoDB reconnected");
+});
 
-const exerciseSchema = new mongoose.Schema(
-  {
-    id: {
-      type: Number,
-      required: true,
-      set: validateIntegerId,
-      validate: {
-        validator: Number.isInteger,
-        message: 'Exercise ID must be an integer'
-      }
-    },
-    name: { type: String, required: true },
-    muscle: { type: String, required: true },
-    unit: { type: String, default: "KG" },
-    sets: { type: [setSchema], default: [] },
-    notes: { type: String, default: "" },
-  },
-  { _id: false }
-);
 
-const daySchema = new mongoose.Schema(
-  {
-    id: {
-      type: Number,
-      required: true,
-      set: validateIntegerId,
-      validate: {
-        validator: Number.isInteger,
-        message: 'Day ID must be an integer'
-      }
+// Category Schema (still defined here as it's only used in index.js)
+const categorySchema = new mongoose.Schema({
+    // Collection: categories
+    label: {
+        type: String, // e.g., "Hypertrophy"
+        required: true,
     },
-    exercises: { type: [exerciseSchema], default: [] },
-  },
-  { _id: false }
-);
-
-const programInfoSchema = new mongoose.Schema(
-  {
-    days: { type: [daySchema], default: [] },
-  },
-  { _id: false }
-);
-
-const programSchema = new mongoose.Schema(
-  {
-    title: {
-      type: String,
-      required: true,
-    },
-    shortLabel: {
-      type: String,
-    },
-    summary: {
-      type: String,
-    },
-    description: {
-      type: String,
-    },
-    tags: [
-      {
-        type: String,
-      },
-    ],
-    durationHint: {
-      type: String,
+    slug: {
+        type: String, // e.g., "hypertrophy" for URL friendliness
+        required: true,
+        unique: true,
     },
     type: {
-      type: String,
-      enum: ["system", "community"],
-      default: "community",
+        type: String, // e.g., 'goal', 'equipment', 'duration'
+        required: true,
     },
-    isPublic: {
-      type: Boolean,
-      default: true,
-    },
-    authorId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "users",
-      default: null,
-    },
-    authorName: {
-      type: String,
-    },
-    rating: {
-      type: Number,
-      default: 0,
-    },
-    ratingCount: {
-      type: Number,
-      default: 0,
-    },
-    programInfo: {
-      type: programInfoSchema,
-      default: () => ({ days: [] }),
-    },
-  },
-  {
-    timestamps: true,
-  }
-);
-
-// 2. SECOND: Add middleware to the schema (AFTER schema is defined)
-programSchema.pre('save', async function () {
-  if (this.programInfo && this.programInfo.days) {
-    // Clean all IDs to ensure they're integers
-    this.programInfo.days.forEach((day, dayIndex) => {
-      day.id = Math.floor(day.id) || dayIndex + 1;
-
-      if (day.exercises) {
-        day.exercises.forEach((exercise, exIndex) => {
-          exercise.id = Math.floor(exercise.id) || exIndex + 1;
-
-          if (exercise.sets) {
-            exercise.sets.forEach((set, setIndex) => {
-              set.id = Math.floor(set.id) || setIndex + 1;
-            });
-          }
-        });
-      }
-    });
-  }
 });
 
-const categorySchema = new mongoose.Schema({
-  label: {
-    type: String,
-    required: true,
-  },
-  slug: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-  type: {
-    type: String,
-    required: true,
-  },
+// Note: ProgramModel and ProgramInfoModel are now imported from ./models/Program.js
+// const CategoryModel = mongoose.model("categories", categorySchema);
+
+// Routes
+app.get("/", (req, res) => {
+    res.send("Hello World");
 });
+
+// Authentication routes
+app.use("/api/auth", authRoutes);
+
+// User routes (profile management)
+app.use("/api/users", userRoutes);
+
+// Admin routes
+app.use("/api/admin", adminRoutes);
+
+
+app.get("/getUsers", async (req, res) => {
+    const userData = await UserModel.find();
+    res.json(userData);
+});
+
+app.get("/getPrograms", async (req, res) => {
+    const programData = await ProgramModel.find();
+    res.json(programData);
+});
+
+app.get("/getCategories", async (req, res) => {
+    const categoryData = await CategoryModel.find();
+    res.json(categoryData);
+});
+
+// ================================
+// POST routes (create / update)
+// ================================
+
+// Create a new user
+// app.post("/users", async (req, res) => {
+//   try {
+//     const { username, email, role } = req.body;
+
+//     const user = new UserModel({
+//       username,
+//       email,
+//       role,
+//     });
+//   }
+// });
+
+// const categorySchema = new mongoose.Schema({
+//   label: {
+//     type: String,
+//     required: true,
+//   },
+//   slug: {
+//     type: String,
+//     required: true,
+//     unique: true,
+//   },
+//   type: {
+//     type: String,
+//     required: true,
+//   },
+// });
 
 // 3. THIRD: Create models from schemas
 const UserModel = mongoose.model("users", userSchema);
@@ -400,25 +515,25 @@ app.post("/categories", async (req, res) => {
   }
 });
 
-app.post("/users/:id/saved-programs", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { programId, status } = req.body;
+// app.post("/users/:id/saved-programs", async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const { programId, status } = req.body;
 
-    const user = await UserModel.findById(id);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
+//     const user = await UserModel.findById(id);
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
 
-    user.savedPrograms.push({
-      programId,
-      status: status || "active",
-    });
+//     user.savedPrograms.push({
+//       programId,
+//       status: status || "active",
+//     });
 
-    const updatedUser = await user.save();
-    res.json(updatedUser);
-  } catch (error) {
-    console.error("Error adding saved program:", error);
-    res.status(400).json({ message: "Failed to add saved program", error: error.message });
-  }
-});
+//     const updatedUser = await user.save();
+//     res.json(updatedUser);
+//   } catch (error) {
+//     console.error("Error adding saved program:", error);
+//     res.status(400).json({ message: "Failed to add saved program", error: error.message });
+//   }
+// });

@@ -35,7 +35,10 @@ const SearchRow = ({
   onThemeToggle,
   currentTheme = 'dark',
   onLoginClick,
-  onSignUpClick
+  onSignUpClick,
+  isAuthenticated = false,
+  currentUser = null,
+  onSignOut
 }) => (
   <div className="search-row">
     <form
@@ -72,25 +75,53 @@ const SearchRow = ({
       >
         {currentTheme === 'dark' ? <SunIcon /> : <MoonIcon />}
       </button>
-      <button
-        type="button"
-        className="guest-home__button guest-home__button--outline guest-home__auth-btn"
-        aria-label="Login to your account"
-        onClick={onLoginClick}
-      >
-        Login
-      </button>
-      <button
-        type="button"
-        className="guest-home__button guest-home__button--solid guest-home__auth-btn"
-        aria-label="Sign up for a new account"
-        onClick={onSignUpClick}
-      >
-        Sign Up
-      </button>
+      {!isAuthenticated ? (
+        <>
+          <button
+            type="button"
+            className="guest-home__button guest-home__button--outline guest-home__auth-btn"
+            aria-label="Login to your account"
+            onClick={onLoginClick}
+          >
+            Login
+          </button>
+          <button
+            type="button"
+            className="guest-home__button guest-home__button--solid guest-home__auth-btn"
+            aria-label="Sign up for a new account"
+            onClick={onSignUpClick}
+          >
+            Sign Up
+          </button>
+        </>
+      ) : (
+        <>
+          {currentUser && (
+            <div className="user-info" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginRight: '10px' }}>
+              {currentUser.profilePicture ? (
+                <img 
+                  src={currentUser.profilePicture} 
+                  alt={currentUser.username}
+                  style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }}
+                />
+              ) : (
+                <span style={{ fontSize: '20px' }}>👤</span>
+              )}
+              <span>{currentUser.username}</span>
+            </div>
+          )}
+          <button
+            type="button"
+            className="guest-home__button guest-home__button--outline guest-home__auth-btn"
+            aria-label="Sign out"
+            onClick={onSignOut}
+          >
+            Sign Out
+          </button>
+        </>
+      )}
     </div>
   </div>
 );
 
 export default SearchRow;
-
