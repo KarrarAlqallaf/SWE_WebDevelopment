@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import SideBar from './components/SideBar/SideBar';
 import GuestHome from './components/GuestHome/GuestHome';
 import ProgramDetailModal from './components/ProgramDetailModal/ProgramDetailModal';
-import JadwalCreationPage from './components/JadwalCreation/JadwalCreation';
 import JadwalBuilder from './components/JadwalBuilder/JadwalBuilder';
 import ProgramDetail from './components/ProgramDetail/ProgramDetail';
 import Vault from './components/Vault/Vault';
@@ -346,6 +345,11 @@ function App() {
     console.log('Navigate to:', key);
     if (key === 'home') {
       setCurrentPage('home');
+    } else if (key === 'create') {
+      // Go directly to jadwal-builder instead of creation page
+      setCurrentPage('jadwal-builder');
+      setSelectedBuiltInProgram(null); // Start with empty custom program
+      setCurrentProgramId(null); // Clear any previous program ID
     } else {
       setCurrentPage(key);
     }
@@ -709,10 +713,9 @@ function App() {
             {currentPage === 'home' && (
               <GuestHome
                 popularPrograms={programs}
-                categories={categoriesWithIcons}
+                builtInPrograms={builtInPrograms}
                 onSearch={handleSearch}
                 onOpenProgram={handleOpenProgram}
-                onCategoryClick={handleCategoryClick}
                 onThemeToggle={handleThemeToggle}
                 currentTheme={theme}
                 onLoginClick={() => setCurrentView('login')}
@@ -729,21 +732,15 @@ function App() {
                 }}
               />
             )}
-            {currentPage === 'create' && (
-              <JadwalCreationPage
-                programs={builtInPrograms}
-                categories={creationCategories}
-                onSelectProgram={handleSelectBuiltInProgram}
-                onCreateCustom={handleCreateCustomJadwal}
-              />
-            )}
             {currentPage === 'jadwal-builder' && (
               <JadwalBuilder
                 builtInProgram={selectedBuiltInProgram}
                 isCustom={!selectedBuiltInProgram}
                 initialCategories={creationCategories}
                 initialScheduleName={
-                  currentProgramId 
+                  // Only set schedule name if we're modifying an existing program
+                  // For new custom programs (when selectedBuiltInProgram is null and no currentProgramId), leave empty
+                  selectedBuiltInProgram && currentProgramId
                     ? (programs.find(p => p.id === currentProgramId)?.title || 
                        vaultItems.find(p => p.id === currentProgramId)?.title || 
                        '')

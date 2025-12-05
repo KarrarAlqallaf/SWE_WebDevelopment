@@ -2,10 +2,10 @@ import React from 'react';
 import ProgramCard from './ProgramCard';
 import './PopularProgramsSection.css';
 
-const PopularProgramsSection = ({ programs = [], onOpenProgram }) => (
+const PopularProgramsSection = ({ programs = [], onOpenProgram, heading = 'Popular Programs' }) => (
   <section className="popular-programs-section" aria-labelledby="popular-programs-heading">
     <h2 id="popular-programs-heading" className="popular-programs-section__heading">
-      Popular Programs
+      {heading}
     </h2>
     <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-xl-4 g-4">
       {programs.length > 0 ? (
