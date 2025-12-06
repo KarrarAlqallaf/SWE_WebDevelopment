@@ -455,7 +455,26 @@ git pull origin branch-name
 
 ### Environment Setup
 
-No environment variables are required for the front-end prototype. All configuration is handled through:
+#### Environment Variables
+
+The application uses environment variables for API configuration. Create a `.env` file in the `frontend/` directory:
+
+```bash
+# Backend API Base URL
+# For local development: http://localhost:8000
+# For production: https://your-api-domain.com
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+**Important Notes:**
+- The `.env` file is gitignored and should not be committed to version control
+- For production deployment, set `VITE_API_BASE_URL` to your production API URL
+- If `VITE_API_BASE_URL` is not set, the app defaults to `http://localhost:8000` for local development
+- All environment variables in Vite must be prefixed with `VITE_` to be accessible in the browser
+
+#### Other Configuration
+
+Additional configuration is handled through:
 - `vite.config.js` for build configuration
 - CSS variables for theming
 - Component props for data flow

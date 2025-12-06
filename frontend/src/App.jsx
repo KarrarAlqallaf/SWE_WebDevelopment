@@ -18,12 +18,11 @@ import './styles/auth.css';
 import './styles/colorPalette.css';
 
 
-// Backend URL / port configuration
-// Define in frontend/.env, e.g.:
-// VITE_BACKEND_PORT=7000
-// or VITE_API_BASE_URL=http://localhost:7000
-const BACKEND_PORT = 8000;
-const API_BASE_URL = `http://localhost:${BACKEND_PORT}`;
+// Backend URL configuration
+// Set VITE_API_BASE_URL in frontend/.env file
+// For local development: VITE_API_BASE_URL=http://localhost:8000
+// For production: VITE_API_BASE_URL=https://your-api-domain.com
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 // Category Icons - matches backend seed categories
 const CategoryIcon = ({ name }) => {
