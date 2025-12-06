@@ -207,7 +207,29 @@
 
 }
 
-.exercise-creation__add-set-btn:hover {
+.exercise-creation__add-set-btn:hover:not(:disabled) {
+}
+
+.exercise-creation__add-set-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.exercise-creation__unit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.exercise-creation__set-input:read-only {
+  opacity: 0.7;
+  cursor: default;
+  background-color: var(--color-surface-alt, rgba(0, 0, 0, 0.05));
+}
+
+.exercise-creation__notes-input:read-only {
+  opacity: 0.7;
+  cursor: default;
+  background-color: var(--color-surface-alt, rgba(0, 0, 0, 0.05));
 }
 
 .exercise-creation__notes {

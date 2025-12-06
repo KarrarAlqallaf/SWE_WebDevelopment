@@ -27,18 +27,24 @@ const ProgramCard = ({ program, onClick }) => {
       aria-label={`Select ${program.title}`}
     >
       <div className="jadwal-program-card__meta">
-        <span className="jadwal-program-card__label">{program.shortLabel}</span>
-        <span className="jadwal-program-card__duration">{program.durationHint}</span>
+        <span className="jadwal-program-card__label">{program.shortLabel || '\u00a0'}</span>
+        <span className="jadwal-program-card__duration">{program.durationHint || '\u00a0'}</span>
       </div>
-      <h3>{program.title}</h3>
-      <p>{program.description}</p>
-      {program.tags?.length > 0 && (
-        <ul className="jadwal-program-card__tags">
-          {program.tags.map((tag) => (
+      <h3>{program.title || 'Untitled Program'}</h3>
+      <p>{program.description || '\u00a0'}</p>
+      <ul className="jadwal-program-card__tags">
+        {program.tags?.length > 0 ? (
+          program.tags.map((tag) => (
             <li key={tag}>{tag}</li>
-          ))}
-        </ul>
+          ))
+        ) : null}
+      </ul>
+      {program.author && (
+        <p className="jadwal-program-card__author">By {program.author}</p>
       )}
+      <p className="jadwal-program-card__rating">
+        {(program.rating || 0).toFixed(1)}/5 ({(program.ratingCount || 0)})
+      </p>
     </button>
   );
 };

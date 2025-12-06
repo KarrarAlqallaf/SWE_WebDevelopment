@@ -251,6 +251,25 @@ textarea::placeholder {
   border-color: var(--color-button-hover-bg);
   color: var(--color-button-hover-text);
 }
+
+.btn-danger {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  color: #fff;
+}
+
+.btn-danger:hover,
+.btn-danger:focus-visible {
+  background-color: #c82333;
+  border-color: #bd2130;
+  color: #fff;
+}
+
+.btn-danger:active {
+  background-color: #bd2130;
+  border-color: #b21f2d;
+  color: #fff;
+}
 [class*='qr-placeholder'],
 .rating__star {
   background-color: var(--color-elevated);
@@ -272,6 +291,8 @@ textarea::placeholder {
 .jadwal-program-card__duration,
 .jadwal-program-card__label,
 .jadwal-program-card__meta,
+.jadwal-program-card__author,
+.jadwal-program-card__rating,
 .program-card__title,
 .program-card__tags,
 .program-card__tags li,

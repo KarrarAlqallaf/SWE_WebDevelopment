@@ -369,3 +369,56 @@ export const addSavedProgram = async (req, res) => {
     }
 };
 
+/**
+ * Remove a program from user's saved programs
+ */
+export const removeSavedProgram = async (req, res) => {
+    try {
+        const { id } = req.params; // User ID from route
+        const { savedProgramId } = req.params; // Saved program ID from route
+        const userId = req.user._id; // Authenticated user ID
+
+        // Verify that the authenticated user matches the route parameter
+        if (String(userId) !== String(id)) {
+            return res.status(403).json({
+                success: false,
+                message: "You can only modify your own saved programs",
+            });
+        }
+
+        // Find user
+        const user = await UserModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        // Remove the saved program from the array
+        user.savedPrograms = user.savedPrograms.filter(
+            (sp) => String(sp._id) !== String(savedProgramId)
+        );
+
+        const updatedUser = await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Program removed from vault successfully",
+            data: {
+                user: {
+                    id: updatedUser._id,
+                    savedPrograms: updatedUser.savedPrograms,
+                },
+            },
+        });
+    } catch (error) {
+        console.error("Remove saved program error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to remove program from vault",
+            error: error.message,
+        });
+    }
+};
+

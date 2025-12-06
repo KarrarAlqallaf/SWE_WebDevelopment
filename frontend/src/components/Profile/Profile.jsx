@@ -279,6 +279,7 @@ export default function Profile({ currentUser, onUpdateUser }) {
             type="submit"
             className="action-btn full-btn"
             disabled={loading}
+            style={{ marginTop: "10px" }}
           >
             {loading ? "Saving..." : "Save Changes"}
           </button>
@@ -341,6 +342,7 @@ export default function Profile({ currentUser, onUpdateUser }) {
             type="submit"
             className="action-btn full-btn"
             disabled={loading}
+            style={{ marginTop: "10px" }}
           >
             {loading ? "Changing..." : "Change Password"}
           </button>

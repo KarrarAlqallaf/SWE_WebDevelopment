@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import SideBar from './components/SideBar/SideBar';
 import GuestHome from './components/GuestHome/GuestHome';
+import AllPrograms from './components/AllPrograms/AllPrograms';
 import ProgramDetailModal from './components/ProgramDetailModal/ProgramDetailModal';
-import JadwalCreationPage from './components/JadwalCreation/JadwalCreation';
 import JadwalBuilder from './components/JadwalBuilder/JadwalBuilder';
 import ProgramDetail from './components/ProgramDetail/ProgramDetail';
 import Vault from './components/Vault/Vault';
@@ -122,6 +122,127 @@ const CategoryIcon = ({ name }) => {
   return icons[name] || icons['General Fitness'];
 };
 
+// Component to handle program detail page from shareable link
+function ProgramPageWrapper({ 
+  programs, 
+  vaultItems, 
+  onFetchProgram, 
+  onRatingSubmit, 
+  onSaveToVault,
+  currentUser,
+  isAuthenticated,
+  navigate,
+  onDeleteFromVault
+}) {
+  const { id } = useParams();
+  const [program, setProgram] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const loadProgram = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        // First, try to find program in current programs list or vault
+        let foundProgram = programs.find(p => p.id === id);
+        if (!foundProgram) {
+          foundProgram = vaultItems.find(p => p.id === id);
+        }
+
+        if (foundProgram) {
+          setProgram(foundProgram);
+          setLoading(false);
+          return;
+        }
+
+        // If not found, fetch from backend
+        const fetchedProgram = await onFetchProgram(id);
+        setProgram(fetchedProgram);
+      } catch (err) {
+        console.error('Failed to load program:', err);
+        setError(err.message || 'Failed to load program');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      loadProgram();
+    }
+  }, [id, programs, vaultItems, onFetchProgram]);
+
+  if (loading) {
+    return (
+      <div className="container py-5">
+        <p>Loading program...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container py-5">
+        <div className="alert alert-danger">
+          <h3>Error</h3>
+          <p>{error}</p>
+          <button className="btn btn-primary" onClick={() => navigate('/')}>
+            Go to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!program) {
+    return (
+      <div className="container py-5">
+        <div className="alert alert-warning">
+          <h3>Program Not Found</h3>
+          <p>The program you're looking for doesn't exist.</p>
+          <button className="btn btn-primary" onClick={() => navigate('/')}>
+            Go to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if program is in vault
+  const isFromVault = vaultItems.some(v => v.id === program.id);
+  
+  // If program has programInfo (even if empty), show detail view
+  // If no programInfo, create empty structure so user can add exercises
+  const programInfo = program.programInfo || { days: [] };
+  
+  // If no days exist, create a default day so user can add exercises
+  if (!Array.isArray(programInfo.days) || programInfo.days.length === 0) {
+    programInfo.days = [{ id: 1, exercises: [] }];
+  }
+  
+  return (
+    <ProgramDetail
+      programData={programInfo}
+      scheduleName={program.title}
+      isEditable={false}
+      programId={program.id}
+      onModify={() => {
+        // Navigate to builder with program data for modification
+        if (onModifyProgram) {
+          onModifyProgram(programInfo, program.id, program.title);
+        } else {
+          navigate('/');
+        }
+      }}
+      onSave={onSaveToVault}
+      onRatingSubmit={onRatingSubmit}
+      isFromVault={isFromVault}
+      onDelete={onDeleteFromVault}
+    />
+  );
+}
+
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -152,6 +273,21 @@ function App() {
     setTheme(savedTheme);
     document.documentElement.setAttribute('data-theme', savedTheme);
   }, []);
+
+  // Handle route changes to update currentPage state
+  useEffect(() => {
+    if (location.pathname === '/all-programs') {
+      setCurrentPage('all-programs');
+      setActiveKey('all-programs');
+    } else if (location.pathname === '/' || location.pathname === '') {
+      // Only reset to home if currentPage is not already set to account or vault
+      // This allows navigation to account/vault from other pages without resetting
+      if (currentPage !== 'account' && currentPage !== 'vault' && currentPage !== 'jadwal-builder') {
+        setCurrentPage('home');
+        setActiveKey('home');
+      }
+    }
+  }, [location.pathname]);
 
   // Helper function to fetch current user from token
   const fetchCurrentUser = async () => {
@@ -204,6 +340,7 @@ function App() {
           title: prog.title,
           author: prog.authorName || userData.username,
           rating: typeof prog.rating === 'number' ? prog.rating : 0,
+          ratingCount: typeof prog.ratingCount === 'number' ? prog.ratingCount : 0,
           summary: prog.summary || prog.description || '',
           shortLabel: prog.shortLabel || '',
           durationHint: prog.durationHint || '',
@@ -250,6 +387,7 @@ function App() {
             title: p.title,
             author: p.authorName || 'System',
             rating: typeof p.rating === 'number' ? p.rating : 0,
+            ratingCount: typeof p.ratingCount === 'number' ? p.ratingCount : 0, // ✅ Add ratingCount
             summary: p.summary || p.description || '',
             shortLabel: p.shortLabel || '',
             durationHint: p.durationHint || '',
@@ -334,6 +472,7 @@ function App() {
             title: p.title,
             author: p.authorName || 'System',
             rating: typeof p.rating === 'number' ? p.rating : 0,
+            ratingCount: typeof p.ratingCount === 'number' ? p.ratingCount : 0,
             summary: p.summary || p.description || '',
             shortLabel: p.shortLabel || '',
             durationHint: p.durationHint || '',
@@ -384,6 +523,15 @@ function App() {
     console.log('Navigate to:', key);
     if (key === 'home') {
       setCurrentPage('home');
+    } else if (key === 'all-programs') {
+      navigate('/all-programs');
+      setCurrentPage('all-programs');
+    } else if (key === 'create') {
+      // Go directly to jadwal-builder for creating custom programs
+      navigate('/');
+      setSelectedBuiltInProgram(null);
+      setCurrentProgramId(null);
+      setCurrentPage('jadwal-builder');
     } else {
       setCurrentPage(key);
     }
@@ -427,6 +575,50 @@ function App() {
       setIsProgramDetailOpen(true);
       setProgramDetailView('modal');
     }
+  };
+
+  // Function to fetch a single program by ID from backend
+  const fetchProgramById = async (programId) => {
+    try {
+      const headers = getFetchHeaders();
+      const response = await fetch(`${API_BASE_URL}/programs/${programId}`, { headers });
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Program not found');
+        } else if (response.status === 403) {
+          throw new Error('Access denied. This program is private.');
+        }
+        throw new Error('Failed to fetch program');
+      }
+
+      const programData = await response.json();
+      
+      // Map to UI shape
+      return {
+        id: programData._id,
+        title: programData.title,
+        author: programData.authorName || 'System',
+        rating: typeof programData.rating === 'number' ? programData.rating : 0,
+        ratingCount: typeof programData.ratingCount === 'number' ? programData.ratingCount : 0,
+        summary: programData.summary || programData.description || '',
+        shortLabel: programData.shortLabel || '',
+        durationHint: programData.durationHint || '',
+        description: programData.description || '',
+        tags: programData.tags || [],
+        type: programData.type,
+        programInfo: programData.programInfo,
+      };
+    } catch (err) {
+      console.error('Failed to fetch program:', err);
+      throw err;
+    }
+  };
+
+  const handleOpenProgram = (id) => {
+    console.log('Open program:', id);
+    // Navigate to shareable program link
+    navigate(`/program/${id}`);
   };
 
   const handleCloseProgramModal = () => {
@@ -496,27 +688,28 @@ function App() {
     console.log('Rating submitted:', ratingValue, 'for program:', programId);
     
     try {
-      // Find the program to get its current rating data
+      // Find the program to get its title for the alert
       const program = programs.find(p => p.id === programId) || vaultItems.find(p => p.id === programId);
       
       if (!program) {
         throw new Error('Program not found');
       }
 
-      // Calculate new average rating
-      const currentRating = program.rating || 0;
-      const currentCount = program.ratingCount || 0;
-      const totalRating = currentRating * currentCount + ratingValue;
-      const newCount = currentCount + 1;
-      const newRating = totalRating / newCount;
+      // Get auth token
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Please log in to rate programs');
+      }
 
-      // Update rating on backend
+      // Send rating to backend (backend will handle calculation)
       const response = await fetch(buildApiUrl(`programs/${programId}/rating`), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
-          rating: newRating,
-          ratingCount: newCount,
+          rating: ratingValue,
         }),
       });
 
@@ -525,10 +718,17 @@ function App() {
         throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
       }
 
-      // Update local state
+      // Get updated program data from backend
+      const updatedProgram = await response.json();
+
+      // Update local state with backend response
       const updatedPrograms = programs.map(p => 
         p.id === programId 
-          ? { ...p, rating: newRating, ratingCount: newCount }
+          ? { 
+              ...p, 
+              rating: typeof updatedProgram.rating === 'number' ? updatedProgram.rating : 0,
+              ratingCount: typeof updatedProgram.ratingCount === 'number' ? updatedProgram.ratingCount : 0
+            }
           : p
       );
       setPrograms(updatedPrograms);
@@ -536,7 +736,11 @@ function App() {
       // Update vault items if this program is in vault
       const updatedVaultItems = vaultItems.map(p =>
         p.id === programId
-          ? { ...p, rating: newRating, ratingCount: newCount }
+          ? { 
+              ...p, 
+              rating: typeof updatedProgram.rating === 'number' ? updatedProgram.rating : 0,
+              ratingCount: typeof updatedProgram.ratingCount === 'number' ? updatedProgram.ratingCount : 0
+            }
           : p
       );
       setVaultItems(updatedVaultItems);
@@ -577,41 +781,146 @@ function App() {
     setCurrentPage('jadwal-builder');
   };
 
+  const handleModifyProgram = (programData, programId, programTitle) => {
+    // Set the program data to be loaded in JadwalBuilder
+    setSelectedBuiltInProgram(programData);
+    setCurrentProgramId(programId);
+    navigate('/');
+    setCurrentPage('jadwal-builder');
+  };
+
   const handleSaveToVault = async (schedule) => {
     console.log('Saving to vault:', schedule);
 
     try {
-      if (currentUser?._id && schedule?.programId) {
-        // 1. Await the fetch and store the response
-        const response = await fetch(buildApiUrl(`api/users/${currentUser._id}/saved-programs`), {
+      if (!currentUser?._id) {
+        throw new Error('You must be logged in to save programs');
+      }
+
+      let programIdToSave = schedule?.programId;
+
+      // If the program was modified, create a new copy with the modifications
+      if (schedule?.isModified && schedule?.days) {
+        // Fetch the original program to get its metadata
+        const originalProgram = programs.find(p => p.id === schedule.programId) || 
+                                vaultItems.find(p => p.id === schedule.programId);
+        
+        if (!originalProgram) {
+          throw new Error('Original program not found');
+        }
+
+        // Create a new program with the modified data
+        const programRes = await fetch(`${API_BASE_URL}/programs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: schedule.name || originalProgram.title,
+            shortLabel: originalProgram.shortLabel || '',
+            summary: originalProgram.summary || '',
+            description: originalProgram.description || '',
+            tags: originalProgram.tags || [],
+            durationHint: originalProgram.durationHint || '',
+            type: 'community', // Modified programs are always community type
+            isPublic: false, // Modified programs are private by default
+            authorId: currentUser._id,
+            authorName: currentUser.username || 'Guest',
+            programInfo: { days: schedule.days || [] },
+          }),
+        });
+
+        if (!programRes.ok) {
+          const errorData = await programRes.json().catch(() => ({}));
+          throw new Error(errorData.message || errorData.error || 'Failed to create modified program');
+        }
+
+        const createdProgram = await programRes.json();
+        programIdToSave = createdProgram._id;
+        console.log('Created modified program copy:', programIdToSave);
+      }
+
+      // Save the program (original or modified copy) to vault
+      if (programIdToSave) {
+        const response = await fetch(`${API_BASE_URL}/api/users/${currentUser._id}/saved-programs`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           },
           body: JSON.stringify({
-            programId: schedule.programId,
+            programId: programIdToSave,
             status: 'active',
           }),
         });
 
-        // 2. CHECK THE RESPONSE STATUS
         if (!response.ok) {
-          // If status is 4xx or 5xx, throw an error to go to the catch block
-          const errorData = await response.json(); // Attempt to read error message from body
+          const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
         }
 
-        // 3. ONLY run success alert if response.ok is true
         alert(`Schedule "${schedule.name}" saved to vault!`);
-        
-        // 4. Refresh vault items to show the newly saved program
         await refreshVaultItems();
+      } else {
+        throw new Error('No program ID to save');
       }
     } catch (err) {
       console.error(err);
-      // Use the error message from the response if available
       alert(`Failed to save schedule. Please try again. Error: ${err.message}`);
+    }
+  };
+
+  const handleDeleteFromVault = async (programId) => {
+    if (!currentUser?._id || !programId) {
+      return;
+    }
+
+    try {
+      // Find the savedProgram entry for this program
+      const userRes = await fetch(`${API_BASE_URL}/getUsers`);
+      if (!userRes.ok) {
+        throw new Error('Failed to fetch user data');
+      }
+
+      const userData = await userRes.json();
+      const fullUser = userData.find(u => String(u._id) === String(currentUser._id));
+      
+      if (!fullUser || !Array.isArray(fullUser.savedPrograms)) {
+        throw new Error('User data not found');
+      }
+
+      const savedProgram = fullUser.savedPrograms.find(
+        sp => String(sp.programId) === String(programId)
+      );
+
+      if (!savedProgram) {
+        alert('Program not found in your vault');
+        return;
+      }
+
+      // Delete the saved program entry
+      const deleteRes = await fetch(
+        `${API_BASE_URL}/api/users/${currentUser._id}/saved-programs/${savedProgram._id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+
+      if (!deleteRes.ok) {
+        const errorData = await deleteRes.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to delete program from vault');
+      }
+
+      alert('Program deleted from vault successfully!');
+      
+      // Refresh vault items and navigate to vault page
+      await refreshVaultItems();
+      navigate('/');
+      setCurrentPage('vault');
+    } catch (err) {
+      console.error('Failed to delete program from vault:', err);
+      alert(`Failed to delete program. Please try again. Error: ${err.message}`);
     }
   };
 
@@ -715,8 +1024,15 @@ function App() {
   // Check if we're on an auth page (should hide sidebar)
   const isAuthPage = location.pathname === '/registration' || location.pathname === '/adminDashboard';
 
+  // Filter popular programs: only show programs with rating >= 4.5
+  const popularPrograms = programs.filter((p) => (p.rating || 0) >= 4.5);
   const builtInPrograms = programs.filter((p) => p.type === 'system');
   const creationCategories = categories;
+
+  const handleViewAllPrograms = () => {
+    navigate('/all-programs');
+    setCurrentPage('all-programs');
+  };
 
   return (
     <div className="app" style={{ display: 'flex', minHeight: '100vh' }}>
@@ -749,11 +1065,24 @@ function App() {
                 <>
                   {currentPage === 'home' && (
                     <GuestHome
-                      popularPrograms={programs}
-                      categories={categoriesWithIcons}
+                      popularPrograms={popularPrograms}
+                      builtInPrograms={builtInPrograms}
                       onSearch={handleSearch}
                       onOpenProgram={handleOpenProgram}
-                      onCategoryClick={handleCategoryClick}
+                      onThemeToggle={handleThemeToggle}
+                      currentTheme={theme}
+                      onLoginClick={() => navigate('/registration?mode=login')}
+                      onSignUpClick={() => navigate('/registration?mode=signup')}
+                      isAuthenticated={isAuthenticated}
+                      currentUser={currentUser}
+                      onSignOut={handleLogout}
+                      onViewAllPrograms={handleViewAllPrograms}
+                    />
+                  )}
+                  {currentPage === 'all-programs' && (
+                    <AllPrograms
+                      programs={programs}
+                      onOpenProgram={handleOpenProgram}
                       onThemeToggle={handleThemeToggle}
                       currentTheme={theme}
                       onLoginClick={() => navigate('/registration?mode=login')}
@@ -772,25 +1101,17 @@ function App() {
                         }}
                       />
                     )}
-                    {currentPage === 'create' && (
-                      <JadwalCreationPage
-                        programs={builtInPrograms}
-                        categories={creationCategories}
-                        onSelectProgram={handleSelectBuiltInProgram}
-                        onCreateCustom={handleCreateCustomJadwal}
-                      />
-                    )}
                     {currentPage === 'jadwal-builder' && (
                       <JadwalBuilder
                         builtInProgram={selectedBuiltInProgram}
                         isCustom={!selectedBuiltInProgram}
                         initialCategories={creationCategories}
                         initialScheduleName={
-                          currentProgramId 
+                          currentProgramId
                             ? (programs.find(p => p.id === currentProgramId)?.title || 
                                vaultItems.find(p => p.id === currentProgramId)?.title || 
                                '')
-                            : ''
+                            : (selectedBuiltInProgram?.title || '')
                         }
                         onSave={async (schedule) => {
                           console.log('Saving schedule to vault:', schedule);
@@ -858,10 +1179,22 @@ function App() {
                         isEditable={false}
                         programId={currentProgramId}
                         onModify={() => {
-                          setCurrentPage('jadwal-builder');
+                          // Get the program data from programs or vaultItems
+                          const programToModify = programs.find(p => p.id === currentProgramId) || 
+                                                   vaultItems.find(p => p.id === currentProgramId);
+                          if (programToModify && programToModify.programInfo) {
+                            handleModifyProgram(programToModify.programInfo, currentProgramId, programToModify.title);
+                          } else {
+                            // Use selectedBuiltInProgram as fallback
+                            handleModifyProgram(selectedBuiltInProgram, currentProgramId, 
+                              programs.find(p => p.id === currentProgramId)?.title || 
+                              vaultItems.find(p => p.id === currentProgramId)?.title || '');
+                          }
                         }}
                         onSave={handleSaveToVault}
                         onRatingSubmit={handleRatingSubmit}
+                        isFromVault={vaultItems.some(v => v.id === currentProgramId)}
+                        onDelete={handleDeleteFromVault}
                       />
                     )}
                     {currentPage === 'vault' && (
@@ -926,6 +1259,43 @@ function App() {
                       );
                     }
                   })()
+                } 
+              />
+              
+              {/* Program detail route - shareable link */}
+              <Route 
+                path="/program/:id" 
+                element={
+                  <ProgramPageWrapper
+                    programs={programs}
+                    vaultItems={vaultItems}
+                    onFetchProgram={fetchProgramById}
+                    onRatingSubmit={handleRatingSubmit}
+                    onSaveToVault={handleSaveToVault}
+                    currentUser={currentUser}
+                    isAuthenticated={isAuthenticated}
+                    navigate={navigate}
+                    onDeleteFromVault={handleDeleteFromVault}
+                    onModifyProgram={handleModifyProgram}
+                  />
+                } 
+              />
+              
+              {/* All Programs route */}
+              <Route 
+                path="/all-programs" 
+                element={
+                  <AllPrograms
+                    programs={programs}
+                    onOpenProgram={handleOpenProgram}
+                    onThemeToggle={handleThemeToggle}
+                    currentTheme={theme}
+                    onLoginClick={() => navigate('/registration?mode=login')}
+                    onSignUpClick={() => navigate('/registration?mode=signup')}
+                    isAuthenticated={isAuthenticated}
+                    currentUser={currentUser}
+                    onSignOut={handleLogout}
+                  />
                 } 
               />
               
