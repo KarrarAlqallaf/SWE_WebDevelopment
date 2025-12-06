@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate, useLocation, useSearchParams, useParams } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import SideBar from './components/SideBar/SideBar';
 import GuestHome from './components/GuestHome/GuestHome';
 import ProgramDetailModal from './components/ProgramDetailModal/ProgramDetailModal';
@@ -112,126 +112,6 @@ const CategoryIcon = ({ name }) => {
   };
   return icons[name] || icons['General Fitness'];
 };
-
-// Component to handle program detail page from shareable link
-function ProgramPageWrapper({ 
-  programs, 
-  vaultItems, 
-  onFetchProgram, 
-  onRatingSubmit, 
-  onSaveToVault,
-  currentUser,
-  isAuthenticated,
-  navigate
-}) {
-  const { id } = useParams();
-  const [program, setProgram] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    const loadProgram = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        // First, try to find program in current programs list or vault
-        let foundProgram = programs.find(p => p.id === id);
-        if (!foundProgram) {
-          foundProgram = vaultItems.find(p => p.id === id);
-        }
-
-        if (foundProgram) {
-          setProgram(foundProgram);
-          setLoading(false);
-          return;
-        }
-
-        // If not found, fetch from backend
-        const fetchedProgram = await onFetchProgram(id);
-        setProgram(fetchedProgram);
-      } catch (err) {
-        console.error('Failed to load program:', err);
-        setError(err.message || 'Failed to load program');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (id) {
-      loadProgram();
-    }
-  }, [id, programs, vaultItems, onFetchProgram]);
-
-  if (loading) {
-    return (
-      <div className="container py-5">
-        <p>Loading program...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="container py-5">
-        <div className="alert alert-danger">
-          <h3>Error</h3>
-          <p>{error}</p>
-          <button className="btn btn-primary" onClick={() => navigate('/')}>
-            Go to Home
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!program) {
-    return (
-      <div className="container py-5">
-        <div className="alert alert-warning">
-          <h3>Program Not Found</h3>
-          <p>The program you're looking for doesn't exist.</p>
-          <button className="btn btn-primary" onClick={() => navigate('/')}>
-            Go to Home
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // If program has programInfo, show detail view
-  if (program.programInfo && Array.isArray(program.programInfo.days) && program.programInfo.days.length > 0) {
-    return (
-      <ProgramDetail
-        programData={program.programInfo}
-        scheduleName={program.title}
-        isEditable={false}
-        programId={program.id}
-        onModify={() => {
-          // Navigate to builder if user wants to modify
-          navigate('/');
-        }}
-        onSave={onSaveToVault}
-        onRatingSubmit={onRatingSubmit}
-      />
-    );
-  }
-
-  // If program doesn't have programInfo, show modal-like view or redirect
-  return (
-    <div className="container py-5">
-      <div className="alert alert-info">
-        <h3>{program.title}</h3>
-        <p>By {program.author}</p>
-        <p>{program.summary || program.description || 'No description available.'}</p>
-        <p className="text-muted">This program doesn't have workout details yet.</p>
-        <button className="btn btn-primary" onClick={() => navigate('/')}>
-          Go to Home
-        </button>
-      </div>
-    </div>
-  );
-}
 
 function App() {
   const navigate = useNavigate();
@@ -493,64 +373,51 @@ function App() {
   const handleNav = (key) => {
     setActiveKey(key);
     console.log('Navigate to:', key);
-    
+    if (key === 'home') {
+      setCurrentPage('home');
+    } else {
+      setCurrentPage(key);
+    }
     // Close program detail view when navigating
     setIsProgramDetailOpen(false);
     setProgramDetailView(null);
-    
-    // Use React Router navigation
-    if (key === 'home') {
-      navigate('/');
-      setCurrentPage('home');
-    } else {
-      // For other pages, navigate to home and set the page state
-      // (since account, create, vault are shown within the home route)
-      navigate('/');
-      setCurrentPage(key);
-    }
-  };
-
-  // Function to fetch a single program by ID from backend
-  const fetchProgramById = async (programId) => {
-    try {
-      const headers = getFetchHeaders();
-      const response = await fetch(`${API_BASE_URL}/programs/${programId}`, { headers });
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('Program not found');
-        } else if (response.status === 403) {
-          throw new Error('Access denied. This program is private.');
-        }
-        throw new Error('Failed to fetch program');
-      }
-
-      const programData = await response.json();
-      
-      // Map to UI shape
-      return {
-        id: programData._id,
-        title: programData.title,
-        author: programData.authorName || 'System',
-        rating: typeof programData.rating === 'number' ? programData.rating : 0,
-        summary: programData.summary || programData.description || '',
-        shortLabel: programData.shortLabel || '',
-        durationHint: programData.durationHint || '',
-        description: programData.description || '',
-        tags: programData.tags || [],
-        type: programData.type,
-        programInfo: programData.programInfo,
-      };
-    } catch (err) {
-      console.error('Failed to fetch program:', err);
-      throw err;
-    }
   };
 
   const handleOpenProgram = (id) => {
     console.log('Open program:', id);
-    // Navigate to shareable program link
-    navigate(`/program/${id}`);
+
+    // Reset state so switching programs always works
+    setIsProgramDetailOpen(false);
+    setSelectedProgram(null);
+    setSelectedBuiltInProgram(null);
+    setProgramDetailView(null);
+    setCurrentProgramId(null);
+
+    // Check both programs array and vaultItems for the program
+    let program = programs.find(p => p.id === id);
+    
+    // If not found in programs, check vaultItems (for vault clicks)
+    if (!program) {
+      program = vaultItems.find(p => p.id === id);
+    }
+
+    if (program) {
+      // Navigate to program detail page context so switching works even outside the vault page
+      setCurrentPage('program-detail');
+
+      // If program has programInfo (even empty), go to detail view
+      if (program.programInfo) {
+        setSelectedBuiltInProgram(program.programInfo);
+        setCurrentProgramId(program.id); // Track which program we're viewing
+        setProgramDetailView('detail');
+        return;
+      }
+
+      // Otherwise, show modal first (e.g., programs without programInfo yet)
+      setSelectedProgram(program);
+      setIsProgramDetailOpen(true);
+      setProgramDetailView('modal');
+    }
   };
 
   const handleCloseProgramModal = () => {
@@ -578,9 +445,11 @@ function App() {
       program = vaultItems.find(p => p.id === programKey || p.title === programKey);
     }
 
-    // If we found a program with an ID, navigate to shareable link
-    if (program && program.id) {
-      navigate(`/program/${program.id}`);
+    if (program && program.programInfo && Array.isArray(program.programInfo.days)) {
+      // Program has programInfo with days - route to detail page
+      setSelectedBuiltInProgram(program.programInfo);
+      setCurrentProgramId(program.id); // Track which program we're viewing
+      setCurrentPage('program-detail');
       return;
     }
 
@@ -1048,23 +917,6 @@ function App() {
                       );
                     }
                   })()
-                } 
-              />
-              
-              {/* Program detail route - shareable link */}
-              <Route 
-                path="/program/:id" 
-                element={
-                  <ProgramPageWrapper
-                    programs={programs}
-                    vaultItems={vaultItems}
-                    onFetchProgram={fetchProgramById}
-                    onRatingSubmit={handleRatingSubmit}
-                    onSaveToVault={handleSaveToVault}
-                    currentUser={currentUser}
-                    isAuthenticated={isAuthenticated}
-                    navigate={navigate}
-                  />
                 } 
               />
               
