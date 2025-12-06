@@ -425,3 +425,42 @@ export const getCurrentUser = async (req, res) => {
     }
 };
 
+/**
+ * User Logout Controller
+ * Note: Since JWT is stateless, logout is primarily handled on the client side
+ * by removing the token. This endpoint provides a way to notify the server
+ * and allows for potential future enhancements like token blacklisting.
+ */
+export const logout = async (req, res) => {
+    try {
+        // User is attached to req by authenticateToken middleware (optional for logout)
+        const userId = req.user?._id;
+        
+        if (userId) {
+            console.log("[LOGOUT] User logging out:", {
+                userId: userId,
+                username: req.user.username,
+            });
+        } else {
+            console.log("[LOGOUT] Logout request (no authenticated user)");
+        }
+
+        // In a stateless JWT system, logout is handled client-side by removing the token
+        // This endpoint can be used for logging purposes or future token blacklisting
+        res.status(200).json({
+            success: true,
+            message: "Logged out successfully",
+        });
+    } catch (error) {
+        console.error("[LOGOUT ERROR] Failed to process logout:", {
+            error: error.message,
+            stack: error.stack,
+        });
+        res.status(500).json({
+            success: false,
+            message: "Failed to process logout",
+            error: error.message,
+        });
+    }
+};
+

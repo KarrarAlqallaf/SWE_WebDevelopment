@@ -577,6 +577,44 @@ function App() {
     }
   };
 
+  // Logout handler
+  const handleLogout = async () => {
+    try {
+      // Optionally call backend logout endpoint
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          await fetch(`${API_BASE_URL}/api/auth/logout`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+        } catch (err) {
+          // Ignore errors from logout endpoint - logout should succeed even if backend call fails
+          console.log('Logout endpoint call failed (non-critical):', err);
+        }
+      }
+    } catch (err) {
+      console.log('Logout error (non-critical):', err);
+    } finally {
+      // Always clear local state regardless of backend response
+      // Clear authentication token
+      localStorage.removeItem('token');
+      
+      // Reset authentication state
+      setIsAuthenticated(false);
+      setIsAdmin(false);
+      setCurrentUser(null);
+      setVaultItems([]);
+      
+      // Navigate to home page
+      setCurrentPage('home');
+      setCurrentView(null);
+    }
+  };
+
   // Check if we're on an auth page (should hide sidebar)
   const isAuthPage = currentView === 'login' || currentView === 'signup' || currentView === 'admin-login' || currentView === 'admin-dashboard';
 
@@ -717,6 +755,9 @@ function App() {
                 currentTheme={theme}
                 onLoginClick={() => setCurrentView('login')}
                 onSignUpClick={() => setCurrentView('signup')}
+                isAuthenticated={isAuthenticated}
+                currentUser={currentUser}
+                onSignOut={handleLogout}
               />
             )}
             {currentPage === 'account' && (

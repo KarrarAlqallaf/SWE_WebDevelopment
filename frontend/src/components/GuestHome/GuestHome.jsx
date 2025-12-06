@@ -13,7 +13,10 @@ const GuestHome = ({
   onThemeToggle,
   currentTheme = 'dark',
   onLoginClick,
-  onSignUpClick
+  onSignUpClick,
+  isAuthenticated = false,
+  currentUser = null,
+  onSignOut
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -53,6 +56,9 @@ const GuestHome = ({
           currentTheme={currentTheme}
           onLoginClick={onLoginClick}
           onSignUpClick={onSignUpClick}
+          isAuthenticated={isAuthenticated}
+          currentUser={currentUser}
+          onSignOut={onSignOut}
         />
 
         <PopularProgramsSection
