@@ -22,7 +22,8 @@ import './styles/colorPalette.css';
 // Set VITE_API_BASE_URL in frontend/.env file
 // For local development: VITE_API_BASE_URL=http://localhost:8000
 // For production: VITE_API_BASE_URL=https://your-api-domain.com
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+// Normalize URL to remove trailing slashes to prevent double slashes
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/+$/, '');
 
 // Category Icons - matches backend seed categories
 const CategoryIcon = ({ name }) => {

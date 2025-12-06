@@ -479,23 +479,35 @@ app.post("/programs/:id/rating", async (req, res) => {
 app.use((err, req, res, next) => {
     console.error("[GLOBAL ERROR HANDLER]", err);
     
-    // Ensure CORS headers are set even on errors
     const origin = req.headers.origin;
+    
+    // Handle CORS errors specifically - send headers even for blocked origins so browser can read error
+    if (err.message === 'Not allowed by CORS') {
+        // For CORS errors, we need to send headers so browser can read the error message
+        // This is a special case - normally we wouldn't send headers for blocked origins
+        if (origin) {
+            res.setHeader('Access-Control-Allow-Origin', origin);
+            res.setHeader('Access-Control-Allow-Credentials', 'true');
+        }
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        
+        return res.status(403).json({
+            error: 'CORS Error',
+            message: 'Origin not allowed by CORS policy',
+            origin: origin,
+            allowedOrigins: allowedOrigins,
+            fix: `Add "${origin}" to ALLOWED_ORIGINS environment variable in Render dashboard`
+        });
+    }
+    
+    // Ensure CORS headers are set even on other errors
     if (origin && allowedOrigins.indexOf(origin) !== -1) {
         res.setHeader('Access-Control-Allow-Origin', origin);
         res.setHeader('Access-Control-Allow-Credentials', 'true');
     }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    
-    // Handle CORS errors specifically
-    if (err.message === 'Not allowed by CORS') {
-        return res.status(403).json({
-            error: 'CORS Error',
-            message: 'Origin not allowed by CORS policy',
-            allowedOrigins: allowedOrigins
-        });
-    }
     
     // Handle other errors
     const statusCode = err.statusCode || 500;
