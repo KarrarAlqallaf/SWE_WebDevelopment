@@ -158,7 +158,44 @@ function ProgramPageWrapper({
         }
 
         // If not found, fetch from backend
-        const fetchedProgram = await onFetchProgram(id);
+        // For unauthenticated users or shared links, use public endpoint
+        // For authenticated users, use the provided fetch function
+        let fetchedProgram;
+        if (isAuthenticated && onFetchProgram) {
+          // Use authenticated fetch if user is logged in
+          fetchedProgram = await onFetchProgram(id);
+        } else {
+          // Use public endpoint for unauthenticated users (shared links)
+          const response = await fetch(buildApiUrl(`programs/${id}`));
+          
+          if (!response.ok) {
+            if (response.status === 404) {
+              throw new Error('Program not found');
+            } else if (response.status === 403) {
+              throw new Error('Access denied. This program is private.');
+            }
+            throw new Error('Failed to fetch program');
+          }
+
+          const programData = await response.json();
+          
+          // Map to UI shape
+          fetchedProgram = {
+            id: programData._id,
+            title: programData.title,
+            author: programData.authorName || 'System',
+            rating: typeof programData.rating === 'number' ? programData.rating : 0,
+            ratingCount: typeof programData.ratingCount === 'number' ? programData.ratingCount : 0,
+            summary: programData.summary || programData.description || '',
+            shortLabel: programData.shortLabel || '',
+            durationHint: programData.durationHint || '',
+            description: programData.description || '',
+            tags: programData.tags || [],
+            type: programData.type,
+            programInfo: programData.programInfo,
+          };
+        }
+        
         setProgram(fetchedProgram);
       } catch (err) {
         console.error('Failed to load program:', err);
@@ -171,7 +208,7 @@ function ProgramPageWrapper({
     if (id) {
       loadProgram();
     }
-  }, [id, programs, vaultItems, onFetchProgram]);
+  }, [id, programs, vaultItems, onFetchProgram, isAuthenticated]);
 
   if (loading) {
     return (
