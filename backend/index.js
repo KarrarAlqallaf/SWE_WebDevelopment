@@ -167,6 +167,71 @@ app.get("/getCategories", async (req, res) => {
     res.json(categoryData);
 });
 
+// Get a single program by ID (shareable link - public access)
+app.get("/programs/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // Validate ID format
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                error: "Invalid program ID",
+                message: "The provided program ID is not valid"
+            });
+        }
+
+        // Get user ID from token if authenticated (optional)
+        const authHeader = req.headers["authorization"];
+        const token = authHeader && authHeader.split(" ")[1];
+        let userId = null;
+
+        if (token && process.env.JWT_SECRET) {
+            try {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                userId = decoded.userId ? new mongoose.Types.ObjectId(decoded.userId) : null;
+            } catch (err) {
+                // Invalid or expired token - treat as unauthenticated
+                userId = null;
+            }
+        }
+
+        // Find program by ID
+        const program = await ProgramModel.findById(id);
+
+        if (!program) {
+            return res.status(404).json({
+                error: "Program not found",
+                message: "The requested program does not exist"
+            });
+        }
+
+        // Check visibility rules:
+        // 1. Public programs (isPublic: true) - visible to everyone
+        // 2. Private programs (isPublic: false) - only visible to author
+        if (!program.isPublic && (!userId || String(program.authorId) !== String(userId))) {
+            return res.status(403).json({
+                error: "Access denied",
+                message: "This program is private and you don't have permission to view it"
+            });
+        }
+
+        console.log("[GET PROGRAM BY ID] Returning program:", {
+            programId: id,
+            title: program.title,
+            isPublic: program.isPublic,
+            userId: userId ? userId.toString() : "none (unauthenticated)"
+        });
+
+        res.json(program);
+    } catch (error) {
+        console.error("[GET PROGRAM BY ID ERROR] Failed to fetch program:", error);
+        res.status(500).json({
+            error: "Failed to fetch program",
+            message: error.message
+        });
+    }
+});
+
 // ================================
 // POST routes (create / update)
 // ================================

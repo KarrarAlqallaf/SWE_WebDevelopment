@@ -54,9 +54,11 @@ const ProgramDetail = ({ programData, scheduleName, isEditable = false, onModify
   };
 
   const handleShareProgram = () => {
-    // Share program functionality (no backend for now)
-    const programUrl = window.location.href;
+    // Share program functionality - use the shareable link
     const programTitle = name || 'Untitled Schedule';
+    const programUrl = programId 
+      ? `${window.location.origin}/program/${programId}`
+      : window.location.href;
     
     if (navigator.share) {
       navigator.share({
@@ -66,13 +68,19 @@ const ProgramDetail = ({ programData, scheduleName, isEditable = false, onModify
       }).catch((err) => {
         console.log('Error sharing:', err);
         // Fallback to clipboard
-        navigator.clipboard.writeText(programUrl);
-        alert('Program link copied to clipboard!');
+        navigator.clipboard.writeText(programUrl).then(() => {
+          alert('Program link copied to clipboard!');
+        }).catch(() => {
+          alert('Failed to copy link. Please copy manually: ' + programUrl);
+        });
       });
     } else {
       // Fallback to clipboard
-      navigator.clipboard.writeText(programUrl);
-      alert('Program link copied to clipboard!');
+      navigator.clipboard.writeText(programUrl).then(() => {
+        alert('Program link copied to clipboard!');
+      }).catch(() => {
+        alert('Failed to copy link. Please copy manually: ' + programUrl);
+      });
     }
   };
 
