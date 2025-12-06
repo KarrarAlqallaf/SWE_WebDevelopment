@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation, useSearchParams, useParams } from 'react-router-dom';
 import SideBar from './components/SideBar/SideBar';
 import GuestHome from './components/GuestHome/GuestHome';
+import AllPrograms from './components/AllPrograms/AllPrograms';
 import ProgramDetailModal from './components/ProgramDetailModal/ProgramDetailModal';
 import JadwalBuilder from './components/JadwalBuilder/JadwalBuilder';
 import ProgramDetail from './components/ProgramDetail/ProgramDetail';
@@ -273,6 +274,17 @@ function App() {
     document.documentElement.setAttribute('data-theme', savedTheme);
   }, []);
 
+  // Handle route changes to update currentPage state
+  useEffect(() => {
+    if (location.pathname === '/all-programs') {
+      setCurrentPage('all-programs');
+      setActiveKey('all-programs');
+    } else if (location.pathname === '/') {
+      setCurrentPage('home');
+      setActiveKey('home');
+    }
+  }, [location.pathname]);
+
   // Helper function to fetch current user from token
   const fetchCurrentUser = async () => {
     const token = localStorage.getItem('token');
@@ -324,6 +336,7 @@ function App() {
           title: prog.title,
           author: prog.authorName || userData.username,
           rating: typeof prog.rating === 'number' ? prog.rating : 0,
+          ratingCount: typeof prog.ratingCount === 'number' ? prog.ratingCount : 0,
           summary: prog.summary || prog.description || '',
           shortLabel: prog.shortLabel || '',
           durationHint: prog.durationHint || '',
@@ -454,6 +467,7 @@ function App() {
             title: p.title,
             author: p.authorName || 'System',
             rating: typeof p.rating === 'number' ? p.rating : 0,
+            ratingCount: typeof p.ratingCount === 'number' ? p.ratingCount : 0,
             summary: p.summary || p.description || '',
             shortLabel: p.shortLabel || '',
             durationHint: p.durationHint || '',
@@ -511,6 +525,9 @@ function App() {
     if (key === 'home') {
       navigate('/');
       setCurrentPage('home');
+    } else if (key === 'all-programs') {
+      navigate('/all-programs');
+      setCurrentPage('all-programs');
     } else if (key === 'create') {
       // Go directly to jadwal-builder for creating custom programs
       navigate('/');
@@ -548,6 +565,7 @@ function App() {
         title: programData.title,
         author: programData.authorName || 'System',
         rating: typeof programData.rating === 'number' ? programData.rating : 0,
+        ratingCount: typeof programData.ratingCount === 'number' ? programData.ratingCount : 0,
         summary: programData.summary || programData.description || '',
         shortLabel: programData.shortLabel || '',
         durationHint: programData.durationHint || '',
@@ -633,27 +651,28 @@ function App() {
     console.log('Rating submitted:', ratingValue, 'for program:', programId);
     
     try {
-      // Find the program to get its current rating data
+      // Find the program to get its title for the alert
       const program = programs.find(p => p.id === programId) || vaultItems.find(p => p.id === programId);
       
       if (!program) {
         throw new Error('Program not found');
       }
 
-      // Calculate new average rating
-      const currentRating = program.rating || 0;
-      const currentCount = program.ratingCount || 0;
-      const totalRating = currentRating * currentCount + ratingValue;
-      const newCount = currentCount + 1;
-      const newRating = totalRating / newCount;
+      // Get auth token
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Please log in to rate programs');
+      }
 
-      // Update rating on backend
+      // Send rating to backend (backend will handle calculation)
       const response = await fetch(`${API_BASE_URL}/programs/${programId}/rating`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
-          rating: newRating,
-          ratingCount: newCount,
+          rating: ratingValue,
         }),
       });
 
@@ -662,10 +681,17 @@ function App() {
         throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
       }
 
-      // Update local state
+      // Get updated program data from backend
+      const updatedProgram = await response.json();
+
+      // Update local state with backend response
       const updatedPrograms = programs.map(p => 
         p.id === programId 
-          ? { ...p, rating: newRating, ratingCount: newCount }
+          ? { 
+              ...p, 
+              rating: typeof updatedProgram.rating === 'number' ? updatedProgram.rating : 0,
+              ratingCount: typeof updatedProgram.ratingCount === 'number' ? updatedProgram.ratingCount : 0
+            }
           : p
       );
       setPrograms(updatedPrograms);
@@ -673,7 +699,11 @@ function App() {
       // Update vault items if this program is in vault
       const updatedVaultItems = vaultItems.map(p =>
         p.id === programId
-          ? { ...p, rating: newRating, ratingCount: newCount }
+          ? { 
+              ...p, 
+              rating: typeof updatedProgram.rating === 'number' ? updatedProgram.rating : 0,
+              ratingCount: typeof updatedProgram.ratingCount === 'number' ? updatedProgram.ratingCount : 0
+            }
           : p
       );
       setVaultItems(updatedVaultItems);
@@ -916,8 +946,15 @@ function App() {
   // Check if we're on an auth page (should hide sidebar)
   const isAuthPage = location.pathname === '/registration' || location.pathname === '/adminDashboard';
 
+  // Filter popular programs: only show programs with rating >= 4.5
+  const popularPrograms = programs.filter((p) => (p.rating || 0) >= 4.5);
   const builtInPrograms = programs.filter((p) => p.type === 'system');
   const creationCategories = categories;
+
+  const handleViewAllPrograms = () => {
+    navigate('/all-programs');
+    setCurrentPage('all-programs');
+  };
 
   return (
     <div className="app" style={{ display: 'flex', minHeight: '100vh' }}>
@@ -950,9 +987,23 @@ function App() {
                 <>
                   {currentPage === 'home' && (
                     <GuestHome
-                      popularPrograms={programs}
+                      popularPrograms={popularPrograms}
                       builtInPrograms={builtInPrograms}
                       onSearch={handleSearch}
+                      onOpenProgram={handleOpenProgram}
+                      onThemeToggle={handleThemeToggle}
+                      currentTheme={theme}
+                      onLoginClick={() => navigate('/registration?mode=login')}
+                      onSignUpClick={() => navigate('/registration?mode=signup')}
+                      isAuthenticated={isAuthenticated}
+                      currentUser={currentUser}
+                      onSignOut={handleLogout}
+                      onViewAllPrograms={handleViewAllPrograms}
+                    />
+                  )}
+                  {currentPage === 'all-programs' && (
+                    <AllPrograms
+                      programs={programs}
                       onOpenProgram={handleOpenProgram}
                       onThemeToggle={handleThemeToggle}
                       currentTheme={theme}
@@ -1148,6 +1199,24 @@ function App() {
                     navigate={navigate}
                     onDeleteFromVault={handleDeleteFromVault}
                     onModifyProgram={handleModifyProgram}
+                  />
+                } 
+              />
+              
+              {/* All Programs route */}
+              <Route 
+                path="/all-programs" 
+                element={
+                  <AllPrograms
+                    programs={programs}
+                    onOpenProgram={handleOpenProgram}
+                    onThemeToggle={handleThemeToggle}
+                    currentTheme={theme}
+                    onLoginClick={() => navigate('/registration?mode=login')}
+                    onSignUpClick={() => navigate('/registration?mode=signup')}
+                    isAuthenticated={isAuthenticated}
+                    currentUser={currentUser}
+                    onSignOut={handleLogout}
                   />
                 } 
               />

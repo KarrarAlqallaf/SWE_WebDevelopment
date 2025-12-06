@@ -42,6 +42,9 @@ const ProgramCard = ({ program, onClick }) => {
       {program.author && (
         <p className="jadwal-program-card__author">By {program.author}</p>
       )}
+      <p className="jadwal-program-card__rating">
+        {(program.rating || 0).toFixed(1)}/5 ({(program.ratingCount || 0)})
+      </p>
     </button>
   );
 };

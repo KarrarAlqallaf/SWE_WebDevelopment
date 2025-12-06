@@ -373,22 +373,71 @@ app.post("/categories", async (req, res) => {
 app.post("/programs/:id/rating", async (req, res) => {
   try {
     const { id } = req.params;
-    const { rating, ratingCount } = req.body;
+    const { rating } = req.body;
 
-    const program = await ProgramModel.findByIdAndUpdate(
-      id,
-      { 
-        $set: { 
-          rating: rating || 0,
-          ratingCount: ratingCount || 0
-        } 
-      },
-      { new: true }
-    );
+    // Get user ID from token
+    const authHeader = req.headers["authorization"];
+    const token = authHeader && authHeader.split(" ")[1];
+    let userId = null;
 
+    if (!token || !process.env.JWT_SECRET) {
+      return res.status(401).json({ message: "Authentication required to rate programs" });
+    }
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      userId = decoded.userId ? new mongoose.Types.ObjectId(decoded.userId) : null;
+    } catch (err) {
+      return res.status(401).json({ message: "Invalid or expired token" });
+    }
+
+    if (!userId) {
+      return res.status(401).json({ message: "User ID not found in token" });
+    }
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ message: "Rating must be between 1 and 5" });
+    }
+
+    // Find the program
+    const program = await ProgramModel.findById(id);
     if (!program) {
       return res.status(404).json({ message: "Program not found" });
     }
+
+    // Initialize ratings array if it doesn't exist
+    if (!program.ratings) {
+      program.ratings = [];
+    }
+
+    // Check if user already rated this program
+    const existingRatingIndex = program.ratings.findIndex(
+      (r) => String(r.userId) === String(userId)
+    );
+
+    if (existingRatingIndex >= 0) {
+      // Update existing rating
+      program.ratings[existingRatingIndex].rating = rating;
+      program.ratings[existingRatingIndex].ratedAt = new Date();
+    } else {
+      // Add new rating
+      program.ratings.push({
+        userId: userId,
+        rating: rating,
+        ratedAt: new Date(),
+      });
+    }
+
+    // Calculate average rating and count
+    const totalRating = program.ratings.reduce((sum, r) => sum + r.rating, 0);
+    const averageRating = program.ratings.length > 0 ? totalRating / program.ratings.length : 0;
+    const ratingCount = program.ratings.length;
+
+    // Update program with new rating data
+    program.rating = Math.round(averageRating * 10) / 10; // Round to 1 decimal place
+    program.ratingCount = ratingCount;
+
+    await program.save();
 
     res.json(program);
   } catch (error) {

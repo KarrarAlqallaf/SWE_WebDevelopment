@@ -291,6 +291,8 @@ textarea::placeholder {
 .jadwal-program-card__duration,
 .jadwal-program-card__label,
 .jadwal-program-card__meta,
+.jadwal-program-card__author,
+.jadwal-program-card__rating,
 .program-card__title,
 .program-card__tags,
 .program-card__tags li,

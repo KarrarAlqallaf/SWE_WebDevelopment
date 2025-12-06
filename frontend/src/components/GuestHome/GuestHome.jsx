@@ -14,7 +14,8 @@ const GuestHome = ({
   onSignUpClick,
   isAuthenticated = false,
   currentUser = null,
-  onSignOut
+  onSignOut,
+  onViewAllPrograms
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -62,6 +63,7 @@ const GuestHome = ({
         <PopularProgramsSection
           programs={filteredPrograms}
           onOpenProgram={onOpenProgram}
+          onViewAll={onViewAllPrograms}
         />
 
         <PopularProgramsSection
