@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import SideBar from './components/SideBar/SideBar';
 import GuestHome from './components/GuestHome/GuestHome';
 import ProgramDetailModal from './components/ProgramDetailModal/ProgramDetailModal';
@@ -113,6 +114,9 @@ const CategoryIcon = ({ name }) => {
 };
 
 function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeKey, setActiveKey] = useState('home');
   const [currentPage, setCurrentPage] = useState('home');
   const [selectedProgram, setSelectedProgram] = useState(null);
@@ -260,27 +264,58 @@ function App() {
     }
   };
 
-  // Fetch data from backend APIs
+  // Check if user is already authenticated on mount (for page refresh)
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.data?.user) {
+              const user = data.data.user;
+              setIsAuthenticated(true);
+              // Check if user is admin
+              if (user.role === 'admin') {
+                setIsAdmin(true);
+              } else {
+                // Regular user: fetch their data and vault
+                await fetchUserDataAndVault(user.id);
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Failed to check auth:', err);
+        }
+      }
+    };
+    checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch data from backend APIs - ONLY public programs and categories
+  // Do NOT fetch user data or vault until after login
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const headers = getFetchHeaders();
-        const [programRes, categoryRes, userRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/getPrograms`, { headers }),
+        // Only fetch public programs and categories - no user data
+        const [programRes, categoryRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/getPrograms`), // No auth headers - only public programs
           fetch(`${API_BASE_URL}/getCategories`),
-          fetch(`${API_BASE_URL}/getUsers`),
-          // fetch(`${API_BASE_URL}/programsinfos`),
         ]);
 
-        if (!programRes.ok || !categoryRes.ok || !userRes.ok) {
+        if (!programRes.ok || !categoryRes.ok) {
           throw new Error('Failed to load data from server');
         }
 
-        const [programData, categoryData, userData] = await Promise.all([
+        const [programData, categoryData] = await Promise.all([
           programRes.json(),
           categoryRes.json(),
-          userRes.json(),
-          // programInfoRes.json(),
         ]);
 
         // Map programs to UI shape
@@ -310,15 +345,9 @@ function App() {
           }))
         );
 
-        // Fetch current user from token if available
-        const authenticatedUser = await fetchCurrentUser();
-        if (authenticatedUser) {
-          setCurrentUser(authenticatedUser);
-          setIsAuthenticated(true);
-          const vaultItemsData = buildVaultItems(authenticatedUser, programData);
-          setVaultItems(vaultItemsData);
-        } else {
-          // No authenticated user, clear vault
+        // Do NOT fetch user data or vault here - only after login
+        // Only clear if not authenticated (will be set by checkAuth if token exists)
+        if (!isAuthenticated) {
           setCurrentUser(null);
           setVaultItems([]);
         }
@@ -577,6 +606,65 @@ function App() {
     }
   };
 
+  // Function to fetch user data and vault (called only after login)
+  const fetchUserDataAndVault = async (userId) => {
+    try {
+      const userRes = await fetch(`${API_BASE_URL}/getUsers`);
+      if (userRes.ok) {
+        const userData = await userRes.json();
+        const fullUser = userData.find(u => String(u._id) === String(userId));
+        if (fullUser) {
+          setCurrentUser(fullUser);
+          // Fetch programs with auth headers to get user's private programs
+          const headers = getFetchHeaders();
+          const programRes = await fetch(`${API_BASE_URL}/getPrograms`, { headers });
+          if (programRes.ok) {
+            const programData = await programRes.json();
+            const vaultItemsData = buildVaultItems(fullUser, programData);
+            setVaultItems(vaultItemsData);
+            // Update programs state with all programs (public + user's private)
+            setPrograms(
+              (programData || []).map((p) => ({
+                id: p._id,
+                title: p.title,
+                author: p.authorName || 'System',
+                rating: typeof p.rating === 'number' ? p.rating : 0,
+                summary: p.summary || p.description || '',
+                shortLabel: p.shortLabel || '',
+                durationHint: p.durationHint || '',
+                description: p.description || '',
+                tags: p.tags || [],
+                type: p.type,
+                programInfo: p.programInfo,
+              }))
+            );
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch user data:', err);
+    }
+  };
+
+  // Handle login/signup success - check if admin and redirect accordingly
+  const handleAuthSuccess = async (user, token, isAdminLogin = false) => {
+    setIsAuthenticated(true);
+    
+    // Check if user is admin
+    const userRole = user.role || (isAdminLogin ? 'admin' : 'user');
+    const isUserAdmin = userRole === 'admin';
+    
+    if (isUserAdmin) {
+      // Admin users go to admin dashboard
+      setIsAdmin(true);
+      navigate('/adminDashboard');
+    } else {
+      // Regular users: fetch their data and vault, then go to home
+      await fetchUserDataAndVault(user.id);
+      navigate('/');
+    }
+  };
+
   // Logout handler
   const handleLogout = async () => {
     try {
@@ -610,13 +698,13 @@ function App() {
       setVaultItems([]);
       
       // Navigate to home page
-      setCurrentPage('home');
+      navigate('/');
       setCurrentView(null);
     }
   };
 
   // Check if we're on an auth page (should hide sidebar)
-  const isAuthPage = currentView === 'login' || currentView === 'signup' || currentView === 'admin-login' || currentView === 'admin-dashboard';
+  const isAuthPage = location.pathname === '/registration' || location.pathname === '/adminDashboard';
 
   const builtInPrograms = programs.filter((p) => p.type === 'system');
   const creationCategories = categories;
@@ -633,253 +721,232 @@ function App() {
         />
       )}
       <main style={{ flex: 1, padding: '0', width: isAuthPage ? '100%' : 'auto' }}>
-        {isAuthPage ? (
-          <>
-            {currentView === 'login' && (
-              <Login
-                onBack={() => {
-                  setCurrentView(null);
-                  setCurrentPage('home');
-                }}
-                onLogin={async (user, token) => {
-                  setIsAuthenticated(true);
-                  // Fetch full user data including savedPrograms
-                  try {
-                    const userRes = await fetch(`${API_BASE_URL}/getUsers`);
-                    if (userRes.ok) {
-                      const userData = await userRes.json();
-                      const fullUser = userData.find(u => String(u._id) === String(user.id));
-                      if (fullUser) {
-                        setCurrentUser(fullUser);
-                        // Refresh vault items
-                        const headers = getFetchHeaders();
-                        const programRes = await fetch(`${API_BASE_URL}/getPrograms`, { headers });
-                        if (programRes.ok) {
-                          const programData = await programRes.json();
-                          const vaultItemsData = buildVaultItems(fullUser, programData);
-                          setVaultItems(vaultItemsData);
+        {loading && (
+          <div className="container py-5">
+            <p>Loading programs...</p>
+          </div>
+        )}
+        {error && !loading && (
+          <div className="container py-5">
+            <p>{error}</p>
+          </div>
+        )}
+        {!loading && !error && (
+          <Routes>
+            {/* Home page route - shows all public programs */}
+            <Route 
+              path="/" 
+              element={
+                <>
+                  {currentPage === 'home' && (
+                    <GuestHome
+                      popularPrograms={programs}
+                      categories={categoriesWithIcons}
+                      onSearch={handleSearch}
+                      onOpenProgram={handleOpenProgram}
+                      onCategoryClick={handleCategoryClick}
+                      onThemeToggle={handleThemeToggle}
+                      currentTheme={theme}
+                      onLoginClick={() => navigate('/registration?mode=login')}
+                      onSignUpClick={() => navigate('/registration?mode=signup')}
+                      isAuthenticated={isAuthenticated}
+                      currentUser={currentUser}
+                      onSignOut={handleLogout}
+                    />
+                  )}
+                    {currentPage === 'account' && (
+                      <Profile 
+                        currentUser={currentUser} 
+                        onUpdateUser={(updatedUser) => {
+                          setCurrentUser(updatedUser);
+                          refreshVaultItems();
+                        }}
+                      />
+                    )}
+                    {currentPage === 'create' && (
+                      <JadwalCreationPage
+                        programs={builtInPrograms}
+                        categories={creationCategories}
+                        onSelectProgram={handleSelectBuiltInProgram}
+                        onCreateCustom={handleCreateCustomJadwal}
+                      />
+                    )}
+                    {currentPage === 'jadwal-builder' && (
+                      <JadwalBuilder
+                        builtInProgram={selectedBuiltInProgram}
+                        isCustom={!selectedBuiltInProgram}
+                        initialCategories={creationCategories}
+                        initialScheduleName={
+                          currentProgramId 
+                            ? (programs.find(p => p.id === currentProgramId)?.title || 
+                               vaultItems.find(p => p.id === currentProgramId)?.title || 
+                               '')
+                            : ''
                         }
-                      }
-                    }
-                  } catch (err) {
-                    console.error('Failed to fetch user data:', err);
-                  }
-                  setCurrentView(null);
-                  setCurrentPage('account');
-                }}
-                onOpenSignUp={() => setCurrentView('signup')}
-                onOpenAdminLogin={() => setCurrentView('admin-login')}
-              />
-            )}
-            {currentView === 'signup' && (
-              <SignUp
-                onBack={() => {
-                  setCurrentView(null);
-                  setCurrentPage('home');
-                }}
-                onSignUp={async (user, token) => {
-                  setIsAuthenticated(true);
-                  // Fetch full user data including savedPrograms
-                  try {
-                    const userRes = await fetch(`${API_BASE_URL}/getUsers`);
-                    if (userRes.ok) {
-                      const userData = await userRes.json();
-                      const fullUser = userData.find(u => String(u._id) === String(user.id));
-                      if (fullUser) {
-                        setCurrentUser(fullUser);
-                        // Refresh vault items
-                        const headers = getFetchHeaders();
-                        const programRes = await fetch(`${API_BASE_URL}/getPrograms`, { headers });
-                        if (programRes.ok) {
-                          const programData = await programRes.json();
-                          const vaultItemsData = buildVaultItems(fullUser, programData);
-                          setVaultItems(vaultItemsData);
+                        onSave={async (schedule) => {
+                          console.log('Saving schedule to vault:', schedule);
+                          try {
+                            const programRes = await fetch(`${API_BASE_URL}/programs`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                title: schedule.name,
+                                shortLabel: schedule.shortLabel || '',
+                                summary: schedule.summary || '',
+                                description: schedule.description || '',
+                                tags: schedule.tags || [],
+                                durationHint: schedule.durationHint || '',
+                                type: 'community',
+                                isPublic: schedule.isPublic !== undefined ? schedule.isPublic : true,
+                                authorId: currentUser?._id || null,
+                                authorName: currentUser?.username || 'Guest',
+                                programInfo: { days: schedule.days || [] },
+                              }),
+                            });
+                            if (!programRes.ok) {
+                              const errorData = await programRes.json().catch(() => ({}));
+                              throw new Error(errorData.message || errorData.error || 'Failed to create program');
+                            }
+                            const createdProgram = await programRes.json();
+                            if (currentUser?._id) {
+                              const savedRes = await fetch(
+                                `${API_BASE_URL}/api/users/${currentUser._id}/saved-programs`,
+                                {
+                                  method: 'POST',
+                                  headers: { 
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                  },
+                                  body: JSON.stringify({
+                                    programId: createdProgram._id,
+                                    status: 'active',
+                                  }),
+                                }
+                              );
+                              if (!savedRes.ok) {
+                                throw new Error('Failed to add program to user vault');
+                              }
+                            }
+                            alert(`Schedule "${schedule.name}" saved to vault!`);
+                            await refreshVaultItems();
+                          } catch (err) {
+                            console.error(err);
+                            alert('Failed to save schedule. Please try again.');
+                          }
+                        }}
+                      />
+                    )}
+                    {currentPage === 'program-detail' && selectedBuiltInProgram && (
+                      <ProgramDetail
+                        programData={selectedBuiltInProgram}
+                        scheduleName={
+                          currentProgramId 
+                            ? (programs.find(p => p.id === currentProgramId)?.title || 
+                               vaultItems.find(p => p.id === currentProgramId)?.title || 
+                               '')
+                            : ''
                         }
-                      }
-                    }
-                  } catch (err) {
-                    console.error('Failed to fetch user data:', err);
-                  }
-                  setCurrentView(null);
-                  setCurrentPage('account');
-                }}
-                onOpenLogin={() => setCurrentView('login')}
-                onOpenAdminLogin={() => setCurrentView('admin-login')}
+                        isEditable={false}
+                        programId={currentProgramId}
+                        onModify={() => {
+                          setCurrentPage('jadwal-builder');
+                        }}
+                        onSave={handleSaveToVault}
+                        onRatingSubmit={handleRatingSubmit}
+                      />
+                    )}
+                    {currentPage === 'vault' && (
+                      <Vault
+                        vaultItems={vaultItems}
+                        onOpenProgram={handleOpenProgram}
+                      />
+                    )}
+                  </>
+                } 
               />
-            )}
-            {currentView === 'admin-login' && (
-              <AdminLogin
-                onBack={() => {
-                  setCurrentView(null);
-                  setCurrentPage('home');
-                }}
-                onLogin={(admin) => {
-                  setIsAdmin(true);
-                  setIsAuthenticated(true);
-                  setCurrentView('admin-dashboard');
-                }}
-                onOpenUserLogin={() => setCurrentView('login')}
-              />
-            )}
-            {currentView === 'admin-dashboard' && (
-              <AdminDashboard
-                onSignOut={() => {
-                  setIsAdmin(false);
-                  setIsAuthenticated(false);
-                  setCurrentView(null);
-                  setCurrentPage('home');
-                }}
-              />
-            )}
-          </>
-        ) : (
-          <>
-            {loading && (
-              <div className="container py-5">
-                <p>Loading programs...</p>
-              </div>
-            )}
-            {error && !loading && (
-              <div className="container py-5">
-                <p>{error}</p>
-              </div>
-            )}
-            {currentPage === 'home' && (
-              <GuestHome
-                popularPrograms={programs}
-                categories={categoriesWithIcons}
-                onSearch={handleSearch}
-                onOpenProgram={handleOpenProgram}
-                onCategoryClick={handleCategoryClick}
-                onThemeToggle={handleThemeToggle}
-                currentTheme={theme}
-                onLoginClick={() => setCurrentView('login')}
-                onSignUpClick={() => setCurrentView('signup')}
-                isAuthenticated={isAuthenticated}
-                currentUser={currentUser}
-                onSignOut={handleLogout}
-              />
-            )}
-            {currentPage === 'account' && (
-              <Profile 
-                currentUser={currentUser} 
-                onUpdateUser={(updatedUser) => {
-                  setCurrentUser(updatedUser);
-                  // Refresh vault items after profile update
-                  refreshVaultItems();
-                }}
-              />
-            )}
-            {currentPage === 'create' && (
-              <JadwalCreationPage
-                programs={builtInPrograms}
-                categories={creationCategories}
-                onSelectProgram={handleSelectBuiltInProgram}
-                onCreateCustom={handleCreateCustomJadwal}
-              />
-            )}
-            {currentPage === 'jadwal-builder' && (
-              <JadwalBuilder
-                builtInProgram={selectedBuiltInProgram}
-                isCustom={!selectedBuiltInProgram}
-                initialCategories={creationCategories}
-                initialScheduleName={
-                  currentProgramId 
-                    ? (programs.find(p => p.id === currentProgramId)?.title || 
-                       vaultItems.find(p => p.id === currentProgramId)?.title || 
-                       '')
-                    : ''
-                }
-                onSave={async (schedule) => {
-                  console.log('Saving schedule to vault:', schedule);
-
-                  try {
-                    // 1) Create a program document with this schedule as program
-                    const programRes = await fetch(`${API_BASE_URL}/programs`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        title: schedule.name,
-                        shortLabel: schedule.shortLabel || '',
-                        summary: schedule.summary || '',
-                        description: schedule.description || '',
-                        tags: schedule.tags || [],
-                        durationHint: schedule.durationHint || '',
-                        type: 'community',
-                        isPublic: schedule.isPublic !== undefined ? schedule.isPublic : true,
-                        authorId: currentUser?._id || null,
-                        authorName: currentUser?.username || 'Guest',
-                        programInfo: { days: schedule.days || [] }, // ✅ CORRECT - Only days array
-                      }),
-                    });
-
-                    if (!programRes.ok) {
-                      const errorData = await programRes.json().catch(() => ({}));
-                      throw new Error(errorData.message || errorData.error || 'Failed to create program');
-                    }
-
-                    const createdProgram = await programRes.json();
-
-                    // 2) If we have a current user, add this program to their savedPrograms
-                    if (currentUser?._id) {
-                      const savedRes = await fetch(
-                        `${API_BASE_URL}/api/users/${currentUser._id}/saved-programs`,
-                        {
-                          method: 'POST',
-                          headers: { 
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${localStorage.getItem('token')}`
-                          },
-                          body: JSON.stringify({
-                            programId: createdProgram._id,
-                            status: 'active',
-                          }),
-                        }
+              
+              {/* Registration page route - handles Login, SignUp, and AdminLogin */}
+              <Route 
+                path="/registration" 
+                element={
+                  (() => {
+                    const mode = searchParams.get('mode') || 'signup';
+                    
+                    if (mode === 'login') {
+                      return (
+                        <Login
+                          onBack={() => navigate('/')}
+                          onLogin={async (user, token) => {
+                            await handleAuthSuccess(user, token, false);
+                          }}
+                          onOpenSignUp={() => {
+                            setSearchParams({ mode: 'signup' });
+                          }}
+                          onOpenAdminLogin={() => {
+                            setSearchParams({ mode: 'admin' });
+                          }}
+                        />
                       );
-
-                    if (!savedRes.ok) {
-                      throw new Error('Failed to add program to user vault');
+                    } else if (mode === 'admin') {
+                      return (
+                        <AdminLogin
+                          onBack={() => navigate('/')}
+                          onLogin={async (admin, token) => {
+                            await handleAuthSuccess(admin, token, true);
+                          }}
+                          onOpenUserLogin={() => {
+                            setSearchParams({ mode: 'login' });
+                          }}
+                        />
+                      );
+                    } else {
+                      // Default to signup
+                      return (
+                        <SignUp
+                          onBack={() => navigate('/')}
+                          onSignUp={async (user, token) => {
+                            await handleAuthSuccess(user, token, false);
+                          }}
+                          onOpenLogin={() => {
+                            setSearchParams({ mode: 'login' });
+                          }}
+                          onOpenAdminLogin={() => {
+                            setSearchParams({ mode: 'admin' });
+                          }}
+                        />
+                      );
                     }
-                  }
-
-                  alert(`Schedule "${schedule.name}" saved to vault!`);
-                  
-                  // Refresh vault items to show the newly saved program
-                  await refreshVaultItems();
-                } catch (err) {
-                  console.error(err);
-                  alert('Failed to save schedule. Please try again.');
-                }
-              }}
+                  })()
+                } 
               />
-            )}
-            {currentPage === 'program-detail' && selectedBuiltInProgram && (
-              <ProgramDetail
-                programData={selectedBuiltInProgram}
-                scheduleName={
-                  currentProgramId 
-                    ? (programs.find(p => p.id === currentProgramId)?.title || 
-                       vaultItems.find(p => p.id === currentProgramId)?.title || 
-                       '')
-                    : ''
-                }
-                isEditable={false}
-                programId={currentProgramId}
-                onModify={() => {
-                  // Switch to builder mode - keep the same program data
-                  setCurrentPage('jadwal-builder');
-                }}
-                onSave={handleSaveToVault}
-                onRatingSubmit={handleRatingSubmit}
+              
+              {/* Admin Dashboard route */}
+              <Route 
+                path="/adminDashboard" 
+                element={
+                  isAdmin && isAuthenticated ? (
+                    <AdminDashboard
+                      onSignOut={() => {
+                        setIsAdmin(false);
+                        setIsAuthenticated(false);
+                        setCurrentUser(null);
+                        setVaultItems([]);
+                        localStorage.removeItem('token');
+                        navigate('/');
+                      }}
+                    />
+                  ) : (
+                    <AdminLogin
+                      onBack={() => navigate('/')}
+                      onLogin={async (admin, token) => {
+                        await handleAuthSuccess(admin, token, true);
+                      }}
+                      onOpenUserLogin={() => navigate('/registration?mode=login')}
+                    />
+                  )
+                } 
               />
-            )}
-            {currentPage === 'vault' && (
-              <Vault
-                vaultItems={vaultItems}
-                onOpenProgram={handleOpenProgram}
-              />
-            )}
-          </>
+            </Routes>
         )}
       </main>
 
