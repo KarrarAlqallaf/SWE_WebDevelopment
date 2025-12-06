@@ -23,7 +23,16 @@ import './styles/colorPalette.css';
 // For local development: VITE_API_BASE_URL=http://localhost:8000
 // For production: VITE_API_BASE_URL=https://your-api-domain.com
 // Normalize URL to remove trailing slashes to prevent double slashes
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/+$/, '');
+const API_BASE_URL_RAW = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').trim();
+const API_BASE_URL = API_BASE_URL_RAW.replace(/\/+$/, '');
+
+// Helper function to construct API URLs properly, preventing double slashes
+const buildApiUrl = (path) => {
+  // Remove leading slash from path if present
+  const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+  // Ensure base URL doesn't have trailing slash and path doesn't have leading slash
+  return `${API_BASE_URL}/${cleanPath}`;
+};
 
 // Category Icons - matches backend seed categories
 const CategoryIcon = ({ name }) => {
@@ -152,7 +161,7 @@ function App() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+      const response = await fetch(buildApiUrl('api/auth/me'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -162,7 +171,7 @@ function App() {
         const data = await response.json();
         if (data.success && data.data?.user) {
           // Fetch full user data including savedPrograms
-          const userRes = await fetch(`${API_BASE_URL}/getUsers`);
+          const userRes = await fetch(buildApiUrl('getUsers'));
           if (userRes.ok) {
             const userData = await userRes.json();
             const fullUser = userData.find(u => String(u._id) === String(data.data.user.id));
@@ -224,8 +233,8 @@ function App() {
     try {
       const headers = getFetchHeaders();
       const [programRes, userRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/getPrograms`, { headers }),
-        fetch(`${API_BASE_URL}/getUsers`),
+        fetch(buildApiUrl('getPrograms'), { headers }),
+        fetch(buildApiUrl('getUsers')),
       ]);
 
       if (programRes.ok && userRes.ok) {
@@ -270,7 +279,7 @@ function App() {
       const token = localStorage.getItem('token');
       if (token) {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+          const response = await fetch(buildApiUrl('api/auth/me'), {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -305,8 +314,8 @@ function App() {
       try {
         // Only fetch public programs and categories - no user data
         const [programRes, categoryRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/getPrograms`), // No auth headers - only public programs
-          fetch(`${API_BASE_URL}/getCategories`),
+          fetch(buildApiUrl('getPrograms')), // No auth headers - only public programs
+          fetch(buildApiUrl('getCategories')),
         ]);
 
         if (!programRes.ok || !categoryRes.ok) {
@@ -502,7 +511,7 @@ function App() {
       const newRating = totalRating / newCount;
 
       // Update rating on backend
-      const response = await fetch(`${API_BASE_URL}/programs/${programId}/rating`, {
+      const response = await fetch(buildApiUrl(`programs/${programId}/rating`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -574,7 +583,7 @@ function App() {
     try {
       if (currentUser?._id && schedule?.programId) {
         // 1. Await the fetch and store the response
-        const response = await fetch(`${API_BASE_URL}/api/users/${currentUser._id}/saved-programs`, {
+        const response = await fetch(buildApiUrl(`api/users/${currentUser._id}/saved-programs`), {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
@@ -609,7 +618,7 @@ function App() {
   // Function to fetch user data and vault (called only after login)
   const fetchUserDataAndVault = async (userId) => {
     try {
-      const userRes = await fetch(`${API_BASE_URL}/getUsers`);
+      const userRes = await fetch(buildApiUrl('getUsers'));
       if (userRes.ok) {
         const userData = await userRes.json();
         const fullUser = userData.find(u => String(u._id) === String(userId));
@@ -617,7 +626,7 @@ function App() {
           setCurrentUser(fullUser);
           // Fetch programs with auth headers to get user's private programs
           const headers = getFetchHeaders();
-          const programRes = await fetch(`${API_BASE_URL}/getPrograms`, { headers });
+          const programRes = await fetch(buildApiUrl('getPrograms'), { headers });
           if (programRes.ok) {
             const programData = await programRes.json();
             const vaultItemsData = buildVaultItems(fullUser, programData);
@@ -672,7 +681,7 @@ function App() {
       const token = localStorage.getItem('token');
       if (token) {
         try {
-          await fetch(`${API_BASE_URL}/api/auth/logout`, {
+          await fetch(buildApiUrl('api/auth/logout'), {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -786,7 +795,7 @@ function App() {
                         onSave={async (schedule) => {
                           console.log('Saving schedule to vault:', schedule);
                           try {
-                            const programRes = await fetch(`${API_BASE_URL}/programs`, {
+                            const programRes = await fetch(buildApiUrl('programs'), {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({
@@ -810,7 +819,7 @@ function App() {
                             const createdProgram = await programRes.json();
                             if (currentUser?._id) {
                               const savedRes = await fetch(
-                                `${API_BASE_URL}/api/users/${currentUser._id}/saved-programs`,
+                                buildApiUrl(`api/users/${currentUser._id}/saved-programs`),
                                 {
                                   method: 'POST',
                                   headers: { 
